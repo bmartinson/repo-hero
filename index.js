@@ -30,9 +30,8 @@ _cBgWhite = "\x1b[47m"
 _cBgGray = "\x1b[100m"
 
 // ----- global variables -----
-_YEAR = null; // number | null
-_START_MONTH = 1; // string
-_END_MONTH = 12; // string
+_START_DATE = null // string | null (YYYY-MM-DD)
+_END_DATE = null // string | null (YYYY-MM-DD)
 _CONFIG = null; // any (config.json)
 _ALIASES = {}; // { key: [value: string[]] }
 _RESULTS = {}; // any (results_timestamp.json)
@@ -138,6 +137,16 @@ async function executeCommand(command, directory) {
   });
 }
 
+/**
+ * Checks if a date string is a valid date.
+ * @param {string} dateString The date string to validate.
+ * @returns {boolean} True if the date string is valid, false otherwise.
+ */
+function isValidDate(dateString) {
+  const date = new Date(dateString);
+  return !isNaN(date.getTime());
+}
+
 // ----- main execution functions -----
 
 /**
@@ -167,6 +176,18 @@ function _configureApp() {
     process.exit(1);
   }
 
+  // Confirm that the start date is valid
+  if (!_CONFIG.startDate || !isValidDate(_CONFIG.startDate)) {
+    console.error('Invalid startDate provided in the configuration file.');
+    process.exit(1);
+  }
+
+  // Confirm that the end date is valid
+  if (!_CONFIG.endDate || !isValidDate(_CONFIG.endDate)) {
+    console.error('Invalid endDate provided in the configuration file.');
+    process.exit(1);
+  }
+
   // Configure any aliases as a reverse look-up map
   if (_CONFIG?.aliases) {
     _ALIASES = {};
@@ -183,65 +204,36 @@ function _configureApp() {
     });
   }
 
-  if (_CONFIG?.year) {
-    _YEAR = +_CONFIG.year;
-  }
-
-  // fetch the start month from the config
-  if (_CONFIG?.startMonth) {
-    _START_MONTH = +_CONFIG.startMonth;
-  }
-
-  // fetch the end month from the config
-  if (_CONFIG?.endMonth) {
-    _END_MONTH = +_CONFIG.endMonth;
-  }
-
-  // normalize the months
-  if (!_END_MONTH || _END_MONTH < 1) {
-    _END_MONTH = 1;
-  }
-  if (!_START_MONTH || _START_MONTH < 1) {
-    _START_MONTH = 1;
-  }
-
-  if (_END_MONTH < 10) {
-    _END_MONTH = `0${_END_MONTH}`;
-  } else {
-    _END_MONTH = `${_END_MONTH}`;
-  }
-  if (_START_MONTH < 10) {
-    _START_MONTH = `0${_START_MONTH}`;
-  } else {
-    _START_MONTH = `${_START_MONTH}`;
-  }
+  // Accept the start and end dates that have already been validated above
+  _START_DATE = _CONFIG.startDate;
+  _END_DATE = _CONFIG.endDate;
 }
 
 /**
  * Function to configure the application based on runtime parameters passed in
  * during execution.
  */
-function _configureRunTime() {
-  /**
-   * When launching the application, loop over the arguments provided to find the
-   * right run time arguments to run the application with.
-   */
-  if (process.argv && process.argv.length > 0) {
-    for (let i = 0; i < process.argv.length; i++) {
-      if (String(process.argv[i]).startsWith("--year=")) {
-        _YEAR = process.argv[i].substring(String("--year=").length, String(process.argv[i]).length);
-      }
-    }
-  }
+// function _configureRunTime() {
+//   /**
+//    * When launching the application, loop over the arguments provided to find the
+//    * right run time arguments to run the application with.
+//    */
+//   if (process.argv && process.argv.length > 0) {
+//     for (let i = 0; i < process.argv.length; i++) {
+//       if (String(process.argv[i]).startsWith("--year=")) {
+//         _YEAR = process.argv[i].substring(String("--year=").length, String(process.argv[i]).length);
+//       }
+//     }
+//   }
 
-  if (!_YEAR || isNaN(_YEAR)) {
-    console.error("Invalid year provided. Please provide a valid year using `--year=YYYY`");
-    process.exit(1);
-  } else {
-    // Make sure the year is an integer
-    _YEAR = parseInt(_YEAR);
-  }
-}
+//   if (!_YEAR || isNaN(_YEAR)) {
+//     console.error("Invalid year provided. Please provide a valid year using `--year=YYYY`");
+//     process.exit(1);
+//   } else {
+//     // Make sure the year is an integer
+//     _YEAR = parseInt(_YEAR);
+//   }
+// }
 
 /**
  * Save the current contents of _RESULTS to a new file in the results directory.
@@ -273,7 +265,7 @@ function _processProjects() {
             let packageName = getPackageName(project);
 
             // Count the commits in the project
-            executeCommand(`git log --since="${_YEAR}-${_START_MONTH}-01T00:00:00-00:00" --until="${_YEAR}-${_END_MONTH}-31T00:00:00-00:00" --pretty=format:"" | wc -l | xargs`, path.join(_CONFIG.directory, packageName)).then((commits) => {
+            executeCommand(`git log --since="${_START_DATE}T00:00:00-00:00" --until="${_END_DATE}T00:00:00-00:00" --pretty=format:"" | wc -l | xargs`, path.join(_CONFIG.directory, packageName)).then((commits) => {
               // Do some validation ont he commits output to ensure we stay numeric
               if (!commits || isNaN(commits)) {
                 commits = 0;
@@ -300,7 +292,7 @@ function _processProjects() {
               _RESULTS[project].commits += commits;
 
               // Get the list of users that contributed to the project
-              executeCommand(`git log --since="${_YEAR}-${_START_MONTH}-01T00:00:00-00:00" --until="${_YEAR}-${_END_MONTH}-31T00:00:00-00:00" --format='%cN <%cE>' | sort -u`, path.join(_CONFIG.directory, packageName)).then((users) => {
+              executeCommand(`git log --since="${_START_DATE}T00:00:00-00:00" --until="${_END_DATE}T00:00:00-00:00" --format='%cN <%cE>' | sort -u`, path.join(_CONFIG.directory, packageName)).then((users) => {
                 users = users.split('\n');
 
                 processUserCommits(packageName).then(() => {
@@ -363,7 +355,7 @@ function discoverProject(project) {
 
 function processUserCommits(packageName) {
   return new Promise((resolve, reject) => {
-    executeCommand(`git log --since='${_YEAR}-${_START_MONTH}-01T00:00:00-00:00' --until='${_YEAR}-${_END_MONTH}-31T23:59:59-00:00' --pretty=format:"%an"`, path.join(_CONFIG.directory, packageName)).then((userCommits) => {
+    executeCommand(`git log --since='${_START_DATE}T00:00:00-00:00' --until='${_END_DATE}T23:59:59-00:00' --pretty=format:"%an"`, path.join(_CONFIG.directory, packageName)).then((userCommits) => {
       userCommits = userCommits.split('\n');
       userCommits = userCommits.reduce((acc, author) => {
         // Convert the author into an alias author
@@ -408,7 +400,7 @@ function processUserCommits(packageName) {
 
 // Configuration steps before running the main logic of the script
 _configureApp();
-_configureRunTime();
+// _configureRunTime();
 
 // Process all projects as configured
 _processProjects().then(() => {

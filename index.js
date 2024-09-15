@@ -268,11 +268,6 @@ function _processProjects() {
               executeCommand(`git log --since="${_YEAR}-01-01T00:00:00-00:00" --until="${_YEAR}-12-31T00:00:00-00:00" --format='%cN <%cE>' | sort -u`, path.join(_CONFIG.directory, packageName)).then((users) => {
                 users = users.split('\n');
 
-                // Make sure the users object is defined
-                if (!_RESULTS.users) {
-                  _RESULTS.users = {};
-                }
-
                 processUserCommits(packageName).then(() => {
                   // we are complete processing commits
                   resolve();

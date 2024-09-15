@@ -31,6 +31,8 @@ _cBgGray = "\x1b[100m"
 
 // ----- global variables -----
 _YEAR = null; // number | null
+_START_MONTH = 1; // string
+_END_MONTH = 12; // string
 _CONFIG = null; // any (config.json)
 _ALIASES = {}; // { key: [value: string[]] }
 _RESULTS = {}; // any (results_timestamp.json)
@@ -166,7 +168,7 @@ function _configureApp() {
   }
 
   // Configure any aliases as a reverse look-up map
-  if (_CONFIG && _CONFIG.aliases) {
+  if (_CONFIG?.aliases) {
     _ALIASES = {};
 
     Object.keys(_CONFIG.aliases).forEach((key) => {
@@ -179,6 +181,39 @@ function _configureApp() {
         });
       }
     });
+  }
+
+  if (_CONFIG?.year) {
+    _YEAR = +_CONFIG.year;
+  }
+
+  // fetch the start month from the config
+  if (_CONFIG?.startMonth) {
+    _START_MONTH = +_CONFIG.startMonth;
+  }
+
+  // fetch the end month from the config
+  if (_CONFIG?.endMonth) {
+    _END_MONTH = +_CONFIG.endMonth;
+  }
+
+  // normalize the months
+  if (!_END_MONTH || _END_MONTH < 1) {
+    _END_MONTH = 1;
+  }
+  if (!_START_MONTH || _START_MONTH < 1) {
+    _START_MONTH = 1;
+  }
+
+  if (_END_MONTH < 10) {
+    _END_MONTH = `0${_END_MONTH}`;
+  } else {
+    _END_MONTH = `${_END_MONTH}`;
+  }
+  if (_START_MONTH < 10) {
+    _START_MONTH = `0${_START_MONTH}`;
+  } else {
+    _START_MONTH = `${_START_MONTH}`;
   }
 }
 
@@ -238,7 +273,7 @@ function _processProjects() {
             let packageName = getPackageName(project);
 
             // Count the commits in the project
-            executeCommand(`git log --since="${_YEAR}-01-01T00:00:00-00:00" --until="${_YEAR}-12-31T00:00:00-00:00" --pretty=format:"" | wc -l | xargs`, path.join(_CONFIG.directory, packageName)).then((commits) => {
+            executeCommand(`git log --since="${_YEAR}-${_START_MONTH}-01T00:00:00-00:00" --until="${_YEAR}-${_END_MONTH}-31T00:00:00-00:00" --pretty=format:"" | wc -l | xargs`, path.join(_CONFIG.directory, packageName)).then((commits) => {
               // Do some validation ont he commits output to ensure we stay numeric
               if (!commits || isNaN(commits)) {
                 commits = 0;
@@ -265,7 +300,7 @@ function _processProjects() {
               _RESULTS[project].commits += commits;
 
               // Get the list of users that contributed to the project
-              executeCommand(`git log --since="${_YEAR}-01-01T00:00:00-00:00" --until="${_YEAR}-12-31T00:00:00-00:00" --format='%cN <%cE>' | sort -u`, path.join(_CONFIG.directory, packageName)).then((users) => {
+              executeCommand(`git log --since="${_YEAR}-${_START_MONTH}-01T00:00:00-00:00" --until="${_YEAR}-${_END_MONTH}-31T00:00:00-00:00" --format='%cN <%cE>' | sort -u`, path.join(_CONFIG.directory, packageName)).then((users) => {
                 users = users.split('\n');
 
                 processUserCommits(packageName).then(() => {
@@ -328,7 +363,7 @@ function discoverProject(project) {
 
 function processUserCommits(packageName) {
   return new Promise((resolve, reject) => {
-    executeCommand(`git log --since='${_YEAR}-01-01T00:00:00-00:00' --until='${_YEAR}-12-31T23:59:59-00:00' --pretty=format:"%an"`, path.join(_CONFIG.directory, packageName)).then((userCommits) => {
+    executeCommand(`git log --since='${_YEAR}-${_START_MONTH}-01T00:00:00-00:00' --until='${_YEAR}-${_END_MONTH}-31T23:59:59-00:00' --pretty=format:"%an"`, path.join(_CONFIG.directory, packageName)).then((userCommits) => {
       userCommits = userCommits.split('\n');
       userCommits = userCommits.reduce((acc, author) => {
         // Convert the author into an alias author
@@ -372,8 +407,8 @@ function processUserCommits(packageName) {
 // ----- primary execution of the script -----
 
 // Configuration steps before running the main logic of the script
-_configureRunTime();
 _configureApp();
+_configureRunTime();
 
 // Process all projects as configured
 _processProjects().then(() => {

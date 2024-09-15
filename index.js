@@ -274,21 +274,23 @@ function _processProjects() {
                 }
 
                 processUserCommits(packageName).then(() => {
+                  // we are complete processing commits
                   resolve();
                 }).catch((error) => {
                   console.error(`Error processing user commits for ${project}:`, error);
-                  reject();
+                  reject(error);
                 });
               }).catch((error) => {
                 console.error(`Error fetching users for ${project}:`, error);
+                reject(error);
               });
             }).catch((error) => {
               console.error(`Error counting commits for ${project}:`, error);
-              reject();
+              reject(error);
             });
           }).catch((error) => {
             console.error(`Error discovering ${project}:`, error);
-            reject();
+            reject(error);
           });
         }),
       );

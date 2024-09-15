@@ -328,7 +328,7 @@ function discoverProject(project) {
 
 function processUserCommits(packageName) {
   return new Promise((resolve, reject) => {
-    executeCommand("git log --since='${_YEAR}-01-01T00:00:00-00:00' --until='${_YEAR}-12-31T23:59:59-00:00' --pretty=format:\"%an\"", path.join(_CONFIG.directory, packageName)).then((userCommits) => {
+    executeCommand(`git log --since='${_YEAR}-01-01T00:00:00-00:00' --until='${_YEAR}-12-31T23:59:59-00:00' --pretty=format:"%an"`, path.join(_CONFIG.directory, packageName)).then((userCommits) => {
       userCommits = userCommits.split('\n');
       userCommits = userCommits.reduce((acc, author) => {
         // Convert the author into an alias author

@@ -207,6 +207,18 @@ function _configureApp() {
   // Accept the start and end dates that have already been validated above
   _START_DATE = _CONFIG.startDate;
   _END_DATE = _CONFIG.endDate;
+
+  if (!_RESULTS) {
+    _RESULTS = {};
+  }
+
+  // write some metadata about the results
+  if (_RESULTS) {
+    _RESULTS['_report_info'] = {
+      start_date: _START_DATE,
+      end_date: _END_DATE,
+    };
+  }
 }
 
 /**

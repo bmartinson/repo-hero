@@ -1,7 +1,7 @@
 const axios = require('axios');
 const rateLimit = require('axios-rate-limit');
 const exec = require('child_process').exec;
-const fetch = require('node-fetch');
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const fs = require('fs');
 const path = require('path');
 
@@ -303,7 +303,7 @@ function _configureApp() {
         'Accept': 'application/vnd.github.v3+json'
       }
     }), {
-      maxRequests: 15,
+      maxRequests: 10,
       perMilliseconds: 1000,
     });
 
@@ -311,13 +311,11 @@ function _configureApp() {
       headers: {
         'Authorization': `token ${_CONFIG.tokens.github}`
       }
-    })
-      .then(response => response.json())
+    }).then(response => response.json())
       .then((data) => {
-        console.log('Checking GitHub rate limits...');
-        console.log(data);
+        console.log(`Used ${data.rate.used} out of ${data.rate.limit} requests. Reset time: ${new Date(data.rate.reset * 1000).toLocaleString()}`);
       })
-      .catch(error => console.error('Error:', error));
+      .catch(error => console.error('Error!', error));
   } else {
     console.warn('GitHub API token not configured. Consider adding config.json .tokens.github for more stats!');
   }

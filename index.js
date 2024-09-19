@@ -303,7 +303,7 @@ function _configureApp() {
         'Accept': 'application/vnd.github.v3+json'
       }
     }), {
-      maxRequests: 10,
+      maxRequests: 15,
       perMilliseconds: 1000,
     });
 

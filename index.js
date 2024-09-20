@@ -199,21 +199,22 @@ async function fetchAllPullRequests(repo) {
 
   while (hasMorePages) {
     try {
-      const response = await _GITHUB_API.get(`/repos/${repo.replace('@', '')}/pulls`, {
+
+      const response = await _GITHUB_API.get(`/search/issues?q=repo:${repo.replace('@', '')}+draft:false+is:pr+created:${_START_DATE}..${_END_DATE}`, {
         params: {
-          state: 'all', // Fetch all pull requests (open, closed, merged)
           per_page: 100, // Maximum number of results per page
           page: page
         }
       });
 
-      pullRequests = pullRequests.concat(response.data);
+      pullRequests = pullRequests.concat(response.data.items);
 
       // Check if there are more pages
       const linkHeader = response.headers.link;
       hasMorePages = linkHeader && linkHeader.includes('rel="next"');
       page++;
     } catch (error) {
+      console.error('Error fetching pull requests:', error);
       hasMorePages = false;
     }
   }
@@ -495,13 +496,13 @@ function _processProjects() {
         userPullRequests.forEach((pr) => {
           processingPullRequestDetails.push(
             new Promise((prdResolve) => {
-              _GITHUB_API.get(`/repos/${pr.head.repo.full_name}/pulls/${pr.number}`).then((prdResponse) => {
+              _GITHUB_API.get(`${pr.pull_request.url.replace('https://api.github.com', '')}`).then((prdResponse) => {
                 _RESULTS.users[alias].loc += prdResponse?.data.additions ? +prdResponse?.data.additions : 0;
                 _RESULTS.users[alias].loc += prdResponse?.data.deletions ? +prdResponse?.data.deletions : 0;
                 _RESULTS.users[alias].filesTouched += prdResponse?.data.changed_files ? +prdResponse?.data.changed_files : 0;
 
                 // get reviews for the pr and then resolve
-                _GITHUB_API.get(`/repos/${pr.head.repo.full_name}/pulls/${pr.number}/reviews`).then((prReviewResponse) => {
+                _GITHUB_API.get(`${pr.pull_request.url.replace('https://api.github.com', '')}/reviews`).then((prReviewResponse) => {
                   if (Array.isArray(prReviewResponse?.data)) {
                     prReviewResponse?.data?.forEach((review) => {
                       const reviewerAlias = getAliasForUser(review.user.login);

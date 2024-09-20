@@ -4,7 +4,7 @@ A configurable product management analysis tool for analyzing the health of git 
 ## Application Configuration
 A CLI-based configuration wizard will be included as part of the package in the future to help you build your application config. This configuration is stored at the same directory level as `index.js` and is named `config.json`. Here is an example of a usable application configuration:
 
-*All top level properties are required, except for `aliases`, `ignoreUsers`*
+*All top level properties are required, except for `aliases`, `ignoreUsers`, `commitsPerPullRequest`*
 
 ```javascript
 {

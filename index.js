@@ -385,8 +385,9 @@ function _configureApp() {
       }
     }).then(response => response.json())
       .then((data) => {
-        console.log(`Used ${data.rate.used} out of ${data.rate.limit} requests. Reset time: ${new Date(data.rate.reset * 1000).toLocaleString()}`);
-        console.log(data);
+        console.log(`\n${_cFgBlue}GitHub API${_cReset} rate limits:`);
+        console.log(`Used ${data.rate.used} out of ${data.rate.limit} GitHub core requests. Reset time: ${new Date(data.rate.reset * 1000).toLocaleString()}`);
+        console.log(`Used ${data.resources.search.used} out of ${data.resources.search.limit} GitHub search requests. Reset time: ${new Date(data.resources.search.reset * 1000).toLocaleString()}`);
       })
       .catch(error => console.error('Error!', error));
   } else {
@@ -411,6 +412,8 @@ function _saveResults() {
 
   // Write the contents of the _RESULTS object to the new file
   fs.writeFileSync(resultsFilePath, JSON.stringify(_RESULTS, null, 2), 'utf8');
+
+  console.log(`\nResults saved to ${_cFgGreen}${resultsFilePath}${_cReset}!`);
 }
 
 function _processProjects() {

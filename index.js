@@ -702,6 +702,9 @@ _processProjects().finally(() => {
     _RESULTS.commitsPerPullRequest = 0;
   }
 
+  _RESULTS.activeUsers = 0;
+  _RESULTS.teamScore = 0;
+
   // assess the results for all users
   if (!!_RESULTS?.users) {
     Object.keys(_RESULTS.users).forEach((user) => {
@@ -713,26 +716,45 @@ _processProjects().finally(() => {
         _RESULTS.users[user].commits = 0;
       }
 
+      // make sure reviews are defined
       if (!_RESULTS.users[user].reviews) {
         _RESULTS.users[user].reviews = 0;
       }
 
+      // make sure loc is defined
       if (!_RESULTS.users[user].loc) {
         _RESULTS.users[user].loc = 0;
       }
 
+      // calculate the user score
       _RESULTS.users[user].score =
-        (_RESULTS.users[user].loc / 1000) +
+        (_RESULTS.users[user].loc > 1000000 ? _RESULTS.users[user].loc / 500 : _RESULTS.users[user].loc / 100) +
         (_RESULTS.users[user].filesTouched / 100) +
-        (_RESULTS.users[user].pullRequests * 10) +
-        (_RESULTS.users[user].commits / 1000) +
-        (_RESULTS.users[user].pullRequests ? _RESULTS.users[user].commits / _RESULTS.users[user].pullRequests : 0) + // account for divide by zero
-        (_RESULTS.users[user].reviews * 8);
+        (_RESULTS.users[user].pullRequests * 15) +
+        (_RESULTS.users[user].commits / 100) +
+        ((_RESULTS.users[user].commits / _RESULTS.commitsPerPullRequest) * 10) +
+        // (_RESULTS.users[user].pullRequests ? _RESULTS.users[user].commits / _RESULTS.users[user].pullRequests / 10 : 0) + // account for divide by zero
+        (_RESULTS.users[user].reviews * 10);
 
+      // make sure that the score is defined
       if (!_RESULTS.users[user].score) {
         _RESULTS.users[user].score = 0;
       }
+
+      // we have an active user
+      if (_RESULTS.users[user].score > 0) {
+        _RESULTS.activeUsers++;
+      }
+
+      _RESULTS.teamScore += _RESULTS.users[user].score;
     });
+
+    // ensure team score is defined and numeric
+    if (!_RESULTS.teamScore) {
+      _RESULTS.teamScore = 0;
+    }
+
+    _RESULTS.teamScore /= _RESULTS.activeUsers;
 
     // Convert the _RESULTS.users object to an array of user objects
     const usersArray = Object.values(_RESULTS.users);

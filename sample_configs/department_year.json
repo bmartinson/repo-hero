@@ -1,0 +1,147 @@
+{
+  "tokens": {
+    "github": "xxx"
+  },
+  "directory": "/Users/bmartinson/Development",
+  "startDate": "2023-09-01",
+  "endDate": "2024-09-01",
+  "commitsPerPullRequest": 12.5,
+  "testProjects": [
+    "@TreeRing/ng-treering"
+  ],
+  "projects": [
+    "@TreeRing/dev-ops",
+    "@TreeRing/config",
+    "@TreeRing/api",
+    "@TreeRing/api-js",
+    "@TreeRing/TRYearbook5",
+    "@TreeRing/TRCruise",
+    "@TreeRing/ng-treering",
+    "@TreeRing/ngtr-sales-portal",
+    "@TreeRing/console",
+    "@TreeRing/marketing",
+    "@TreeRing/www",
+    "@TreeRing/TRYearbook-flash",
+    "@TreeRing/TRYearbookIOS",
+    "@TreeRing/TRCoreIOS",
+    "@TreeRing/TRBabyIOS",
+    "@bmartinson/ngx-x-browser-svg-mask",
+    "@bmartinson/ngx-advanced-img",
+    "@bmartinson/ngx-draggable-dom"
+  ],
+  "aliases": {
+    "DevOps Deployment": [
+      "root",
+      "flat-data",
+      "Cloud User",
+      "TreeRing Deploy",
+      "Deployment",
+      "DevOps",
+      "treering",
+      "production",
+      "AG",
+      "treering production",
+      "(No Author)",
+      "dependabot[bot]",
+      "GitHub",
+      "treering-deploy",
+      "reering-deploy",
+      "treering devops",
+      "treering-devops",
+      ""
+    ],
+    "Aaron Greco": [
+      "grecstar"
+    ],
+    "Brian Martinson": [
+      "bmartinson",
+      "bmartinson13",
+      "bmartinson-tr"
+    ],
+    "William Chidyausiku": [
+      "William",
+      "fromsomnia",
+      "William Chidyasiku",
+      "william chidyausiku"
+    ],
+    "Daniel Steffe": [
+      "Skippy",
+      "idiodabble"
+    ],
+    "George Ku": [
+      "George",
+      "gku036"
+    ],
+    "Benji Wolfenberger": [
+      "benjiwolf",
+      "benji wolfenberger",
+      "bwolfenberger"
+    ],
+    "Irene Chan": [
+      "irenechan-treering"
+    ],
+    "Win Min": [
+      "win-treering",
+      "win min"
+    ],
+    "John Moskwa": [
+      "jmoskwa6"
+    ],
+    "Arda Ungun": [
+      "ardatr",
+      "arda ungun"
+    ],
+    "Nick Pasto": [
+      "Nick",
+      "pastotreering"
+    ],
+    "Kevin Zerber": [
+      "kzerber"
+    ],
+    "Max Whitaker": [
+      "MaxisG"
+    ],
+    "Brandon Long": [
+      "brandonlong",
+      "brandon long",
+      "brandon074"
+    ],
+    "Dumka": [
+      "dumka777",
+      "dmitriy kravchenko"
+    ],
+    "Kasper Kuo": [
+      "kasperkuo"
+    ],
+    "Mike Mitchell": [
+      "mike-treering"
+    ],
+    "Marissa Hing": [
+      "marissahing"
+    ],
+    "Jack Mullis": [
+      "jackmullis"
+    ],
+    "Jay Ng": [
+      "ngchwanlii"
+    ],
+    "Elle Louie": [
+      "ElleLouie"
+    ],
+    "Philip Basnage": [
+      "pbasnage",
+      "pbasnagetr",
+      "philiptreering"
+    ],
+    "Monika Israt": [
+      "imonika",
+      "monika israt"
+    ],
+    "Kyle Burt": [
+      "kyleburt11495"
+    ]
+  },
+  "ignoreUsers": [
+    "DevOps Deployment"
+  ]
+}

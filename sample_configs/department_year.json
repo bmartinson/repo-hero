@@ -6,9 +6,6 @@
   "startDate": "2023-09-01",
   "endDate": "2024-09-01",
   "commitsPerPullRequest": 12.5,
-  "testProjects": [
-    "@TreeRing/ng-treering"
-  ],
   "projects": [
     "@TreeRing/dev-ops",
     "@TreeRing/config",

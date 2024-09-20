@@ -732,7 +732,7 @@ _processProjects().finally(() => {
 
       // calculate the user score
       _RESULTS.users[user].score =
-        (_RESULTS.users[user].loc > 1000000 ? _RESULTS.users[user].loc / 500 : _RESULTS.users[user].loc / 100) +
+        (_RESULTS.users[user].loc > 1000000 ? _RESULTS.users[user].loc / 800 : _RESULTS.users[user].loc / 100) +
         (_RESULTS.users[user].filesTouched / 100) +
         (_RESULTS.users[user].pullRequests * 15) +
         (_RESULTS.users[user].commits / 100) +

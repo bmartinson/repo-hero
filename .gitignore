@@ -130,4 +130,6 @@ dist
 .pnp.*
 
 config.json
+cache.json
+**/.results_cache/
 **/.results_history/

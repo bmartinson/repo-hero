@@ -4,6 +4,7 @@ const exec = require('child_process').exec;
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const fs = require('fs');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 // ----- nodejs helper variables -----
 _cReset = "\x1b[0m"
@@ -39,6 +40,7 @@ let _CONFIG = null; // any (config.json)
 let _ALIASES = {}; // { key: [value: string[]] }
 let _RESULTS = {}; // any (results_timestamp.json)
 let _GITHUB_API = null; // axios instance for the GitHub API
+let _CACHE = null; // any (cache.json)
 
 // ----- helper functions -----
 
@@ -142,6 +144,76 @@ async function executeCommand(command, directory) {
 }
 
 /**
+ *
+ * @param {string} req The path of the endpoint to fetch data from.
+ * @param {any} options The request options.
+ * @returns
+ */
+async function getFromGitHubAPI(req, options) {
+  const cacheDir = path.join(__dirname, '.results_cache');
+
+  let key = req;
+  if (options) {
+    key += `--qps--${JSON.stringify(options)}`;
+  }
+
+  if (!_CACHE) {
+    _CACHE = {};
+
+    try {
+      const files = fs.readdirSync(cacheDir);
+      const jsonFiles = files.filter(file => path.extname(file) === '.json');
+      const jsonData = jsonFiles.map(file => {
+        const filePath = path.join(cacheDir, file);
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        return JSON.parse(fileContent);
+      });
+
+      Object.values(jsonData).forEach((data) => {
+        Object.keys(data).forEach((key) => {
+          _CACHE[key] = data[key];
+        });
+      });
+    } catch (error) {
+      _CACHE = {};
+    }
+  }
+
+  if (_CACHE[key]) {
+    return _CACHE[key];
+  }
+
+  try {
+    console.log(`Fetching data from GitHub API: ${req} with options: ${JSON.stringify(options)}`);
+    const response = await _GITHUB_API.get(req, options);
+    _CACHE[key] = { data: response.data, headers: response.headers };
+
+    const saveData = {};
+    saveData[key] = _CACHE[key];
+
+    // Convert _CACHE to JSON string
+    const cacheData = JSON.stringify(saveData, null, 2);
+
+    // Check if the .results_cache folder exists, if not, create it
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir);
+    }
+
+    // Create the filename with the current Unix timestamp
+    const timestamp = Date.now();
+    const cacheFilePath = path.join(cacheDir, `cache_${timestamp}_${uuidv4()}.json`);
+
+    // Write the JSON string to cache_xxx_yyy.json
+    fs.writeFile(cacheFilePath, cacheData, () => {
+    });
+
+    return response;
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
  * Checks if a date string is a valid date.
  * @param {string} dateString The date string to validate.
  * @returns {boolean} True if the date string is valid, false otherwise.
@@ -164,7 +236,7 @@ async function fetchAllContributors(project) {
 
   while (hasMorePages) {
     try {
-      const response = await _GITHUB_API.get(`/repos/${project.replace('@', '')}/contributors`, {
+      const response = await getFromGitHubAPI(`/repos/${project.replace('@', '')}/contributors`, {
         params: {
           per_page: 100, // Maximum number of results per page
           page: page
@@ -199,8 +271,7 @@ async function fetchAllPullRequests(repo) {
 
   while (hasMorePages) {
     try {
-
-      const response = await _GITHUB_API.get(`/search/issues?q=repo:${repo.replace('@', '')}+draft:false+is:pr+created:${_START_DATE}..${_END_DATE}`, {
+      const response = await getFromGitHubAPI(`/search/issues?q=repo:${repo.replace('@', '')}+draft:false+is:pr+created:${_START_DATE}..${_END_DATE}`, {
         params: {
           per_page: 100, // Maximum number of results per page
           page: page
@@ -229,7 +300,7 @@ async function fetchAllPullRequests(repo) {
  * at ./config.json.
  */
 function _configureApp() {
-  const configFilePath = path.join(__dirname, 'config.json')
+  const configFilePath = path.join(__dirname, 'config.json');
   // Synchronously read the file
   const configFileContent = fs.readFileSync(
     configFilePath,
@@ -304,8 +375,8 @@ function _configureApp() {
         'Accept': 'application/vnd.github.v3+json'
       }
     }), {
-      maxRequests: 15,
-      perMilliseconds: 1000,
+      maxRequests: 8,
+      perMilliseconds: 2000,
     });
 
     fetch('https://api.github.com/rate_limit', {
@@ -315,6 +386,7 @@ function _configureApp() {
     }).then(response => response.json())
       .then((data) => {
         console.log(`Used ${data.rate.used} out of ${data.rate.limit} requests. Reset time: ${new Date(data.rate.reset * 1000).toLocaleString()}`);
+        console.log(data);
       })
       .catch(error => console.error('Error!', error));
   } else {
@@ -496,13 +568,13 @@ function _processProjects() {
         userPullRequests.forEach((pr) => {
           processingPullRequestDetails.push(
             new Promise((prdResolve) => {
-              _GITHUB_API.get(`${pr.pull_request.url.replace('https://api.github.com', '')}`).then((prdResponse) => {
+              getFromGitHubAPI(`${pr.pull_request.url.replace('https://api.github.com', '')}`).then((prdResponse) => {
                 _RESULTS.users[alias].loc += prdResponse?.data.additions ? +prdResponse?.data.additions : 0;
                 _RESULTS.users[alias].loc += prdResponse?.data.deletions ? +prdResponse?.data.deletions : 0;
                 _RESULTS.users[alias].filesTouched += prdResponse?.data.changed_files ? +prdResponse?.data.changed_files : 0;
 
                 // get reviews for the pr and then resolve
-                _GITHUB_API.get(`${pr.pull_request.url.replace('https://api.github.com', '')}/reviews`).then((prReviewResponse) => {
+                getFromGitHubAPI(`${pr.pull_request.url.replace('https://api.github.com', '')}/reviews`).then((prReviewResponse) => {
                   if (Array.isArray(prReviewResponse?.data)) {
                     prReviewResponse?.data?.forEach((review) => {
                       const reviewerAlias = getAliasForUser(review.user.login);
@@ -641,9 +713,15 @@ _processProjects().finally(() => {
         _RESULTS.users[user].commits = 0;
       }
 
+      if (!_RESULTS.users[user].reviews) {
+        _RESULTS.users[user].reviews = 0;
+      }
+
       _RESULTS.users[user].score = (_RESULTS.users[user].commits > 0 ? _RESULTS.users[user].loc / _RESULTS.users[user].commits : 0) +
-        _RESULTS.users[user].commits + _RESULTS.users[user].filesTouched +
-        (_RESULTS.users[user].reviews ? _RESULTS.users[user].reviews * 5 : 0);
+        _RESULTS.users[user].pullRequests +
+        _RESULTS.users[user].commits +
+        _RESULTS.users[user].filesTouched +
+        _RESULTS.users[user].reviews * 5;
 
       if (!_RESULTS.users[user].score) {
         _RESULTS.users[user].score = 0;
@@ -661,6 +739,18 @@ _processProjects().finally(() => {
     usersArray.forEach(user => {
       sortedUsers[user.id] = user; // Assuming each user object has a unique 'id' property
     });
+
+    // splice out each ignored user
+    if (_CONFIG?.ignoreUsers) {
+      let index = -1;
+      _CONFIG.ignoreUsers.forEach((user) => {
+        index = usersArray.findIndex(obj => obj['name'] === user?.toLowerCase());
+
+        if (index !== -1) {
+          usersArray.splice(index, 1);
+        }
+      });
+    }
 
     // Assign the sorted object back to _RESULTS.users
     _RESULTS.users = usersArray;

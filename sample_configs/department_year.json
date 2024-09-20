@@ -27,7 +27,8 @@
     "@TreeRing/TRBabyIOS",
     "@bmartinson/ngx-x-browser-svg-mask",
     "@bmartinson/ngx-advanced-img",
-    "@bmartinson/ngx-draggable-dom"
+    "@bmartinson/ngx-draggable-dom",
+    "@bmartinson/repo-hero"
   ],
   "aliases": {
     "DevOps Deployment": [

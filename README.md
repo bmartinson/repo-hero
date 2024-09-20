@@ -9,15 +9,18 @@ A CLI-based configuration wizard will be included as part of the package in the 
 ```json
 {
   "tokens": {
-    "github": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    "github": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxx" // use a personal access token for GitHub API access
   },
-  "directory": "/Users/bmartinson/Development",
+  "directory": "/Users/bmartinson/Development", // where to look for .git projects
+  "startDate": "2023-09-01", // the starting range for analysis
+  "endDate": "2024-09-01", // the ending range for analysis
+  "commitsPerPullRequest": 12.5, // if your projects don't use pull requests and rely mostly on commits, use this to synthesize deliverables (pseudo-PRs)
   "projects": [
-    "repo-hero"
+    "@bmartinson/repo-hero" // these are all of the project including owner name owner/repo - @ handles should be included
   ],
   "aliases": {
-    "User A": [
-      "user-a",
+    "User A": [ // the resulting name for a user we care about
+      "user-a", // a known alias that we want to turn into "User A"
       "usera"
     ],
     "Brian Martinson": [
@@ -26,7 +29,7 @@ A CLI-based configuration wizard will be included as part of the package in the 
     ]
   },
   "ignoreUsers": [
-    "DevOps"
+    "DevOps" // user names that we will remove from the results output
   ]
 }
 ```

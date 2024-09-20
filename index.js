@@ -705,6 +705,7 @@ _processProjects().finally(() => {
     _RESULTS.commitsPerPullRequest = 0;
   }
 
+  _RESULTS.predictedPullRequests = (_CONFIG.commitsPerPullRequest && !isNaN(_CONFIG.commitsPerPullRequest)) ? _RESULTS.totalCommits / _CONFIG.commitsPerPullRequest : _RESULTS.totalCommits / _RESULTS.commitsPerPullRequest;
   _RESULTS.activeUsers = 0;
   _RESULTS.teamScore = 0;
 

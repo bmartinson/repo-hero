@@ -6,7 +6,7 @@ A CLI-based configuration wizard will be included as part of the package in the 
 
 *All top level properties are required, except for `aliases`, `ignoreUsers`*
 
-```json
+```javascript
 {
   "tokens": {
     "github": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxx" // use a personal access token for GitHub API access

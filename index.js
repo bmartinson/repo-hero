@@ -717,11 +717,17 @@ _processProjects().finally(() => {
         _RESULTS.users[user].reviews = 0;
       }
 
-      _RESULTS.users[user].score = (_RESULTS.users[user].commits > 0 ? _RESULTS.users[user].loc / _RESULTS.users[user].commits : 0) +
-        _RESULTS.users[user].pullRequests +
-        _RESULTS.users[user].commits +
-        _RESULTS.users[user].filesTouched +
-        _RESULTS.users[user].reviews * 5;
+      if (!_RESULTS.users[user].loc) {
+        _RESULTS.users[user].loc = 0;
+      }
+
+      _RESULTS.users[user].score =
+        (_RESULTS.users[user].loc / 1000) +
+        (_RESULTS.users[user].filesTouched / 100) +
+        (_RESULTS.users[user].pullRequests * 10) +
+        (_RESULTS.users[user].commits / 1000) +
+        (_RESULTS.users[user].pullRequests ? _RESULTS.users[user].commits / _RESULTS.users[user].pullRequests : 0) + // account for divide by zero
+        (_RESULTS.users[user].reviews * 8);
 
       if (!_RESULTS.users[user].score) {
         _RESULTS.users[user].score = 0;

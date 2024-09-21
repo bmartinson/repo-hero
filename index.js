@@ -299,6 +299,44 @@ async function fetchAllPullRequests(repo) {
   return pullRequests;
 }
 
+/**
+ * Informs you whether a given project exists on the local disk or not. If not,
+ * it will clone it from the remote origin.
+ *
+ * @param {string} project The project name excluding the owner handle.
+ * @returns A promise that resolves when the project is discovered.
+ */
+function discoverProject(project) {
+  scopeName = getScopeName(project);
+  packageName = getPackageName(project);
+
+  // Make sure the projects are loaded
+  if (!isValidDirectoryPath(path.join(_CONFIG.directory, packageName))) {
+    console.log(`Cloning ${_cFgBlue}${project}${_cReset}...`);
+
+    return new Promise((resolve, reject) => {
+      executeCommand(`git clone git@github.com:${scopeName ? `${scopeName}/` : ''}${getPackageName(project)}.git`, _CONFIG.directory).then(() => {
+        // Make sure the results object is defined
+        if (!_RESULTS) {
+          _RESULTS = {};
+        }
+
+        // Make sure the project is defined in the results object
+        if (!_RESULTS[project]) {
+          _RESULTS[project] = {};
+        }
+
+        resolve(project);
+      }).catch((error) => {
+        reject(error);
+      });
+    });
+  } else {
+    console.log(`Project ${_cFgGreen}${project}${_cReset} was discovered.`);
+    return Promise.resolve(project);
+  }
+}
+
 // ----- main execution functions -----
 
 /**
@@ -628,37 +666,6 @@ function _processProjects() {
 
     return Promise.all(processingPullRequestDetails);
   });
-}
-
-function discoverProject(project) {
-  scopeName = getScopeName(project);
-  packageName = getPackageName(project);
-
-  // Make sure the projects are loaded
-  if (!isValidDirectoryPath(path.join(_CONFIG.directory, packageName))) {
-    console.log(`Cloning ${_cFgBlue}${project}${_cReset}...`);
-
-    return new Promise((resolve, reject) => {
-      executeCommand(`git clone git@github.com:${scopeName ? `${scopeName}/` : ''}${getPackageName(project)}.git`, _CONFIG.directory).then(() => {
-        // Make sure the results object is defined
-        if (!_RESULTS) {
-          _RESULTS = {};
-        }
-
-        // Make sure the project is defined in the results object
-        if (!_RESULTS[project]) {
-          _RESULTS[project] = {};
-        }
-
-        resolve(project);
-      }).catch((error) => {
-        reject(error);
-      });
-    });
-  } else {
-    console.log(`Project ${_cFgGreen}${project}${_cReset} was discovered.`);
-    return Promise.resolve(project);
-  }
 }
 
 function processUserCommits(packageName) {

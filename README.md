@@ -1,5 +1,5 @@
 # repo-hero
-A configurable product management analysis tool for analyzing the health of git repositories and their contributors.
+A configurable product management analysis toolkit for analyzing the health of git repositories and their contributors.
 
 ## Application Configuration
 A CLI-based configuration wizard will be included as part of the package in the future to help you build your application config. This configuration is stored at the same directory level as `index.js` and is named `config.json`. Here is an example of a usable application configuration:
@@ -35,8 +35,18 @@ A CLI-based configuration wizard will be included as part of the package in the 
 ```
 
 ## Running The Application
-For now, it's as simple as running the entry script and passing a year.
+These tools are a work in progress. You can expect a more single run e2e tool that will generate webpages and utilize chart.js, etc. in order to visualize your data gathering. For now, use these various steps to aggregate data.
 
 ```sh
-node index.js --year=YYYY
+#
+# Gather data based on your config.json file. Continually adjust your config
+# for new date ranges to gather all of the information you need.
+#
+npm start # repeat for each config.json mod
+
+# now, combine all of your .results_history output
+npm run combine
+
+# once combined, generate useful csv files so you may plot and graph
+npm run chart
 ```

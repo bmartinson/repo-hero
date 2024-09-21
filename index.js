@@ -186,6 +186,11 @@ async function getFromGitHubAPI(req, options) {
   try {
     console.log(`Fetching data from GitHub API: ${req} with options: ${JSON.stringify(options)}`);
     const response = await _GITHUB_API.get(req, options);
+
+    if (response?.status !== 200) {
+      return response;
+    }
+
     _CACHE[key] = { data: response.data, headers: response.headers };
 
     const saveData = {};
@@ -375,7 +380,7 @@ function _configureApp() {
         'Accept': 'application/vnd.github.v3+json'
       }
     }), {
-      maxRequests: 8,
+      maxRequests: 5,
       perMilliseconds: 2000,
     });
 

@@ -8,15 +8,8 @@ update_dates() {
     '.startDate = $start_date | .endDate = $end_date' config.json > temp.json && mv temp.json config.json
 }
 
-update_dates "2022-09-01" "2022-09-30"
-npm start
-update_dates "2022-10-01" "2022-10-31"
-npm start
-update_dates "2022-11-01" "2022-11-30"
-npm start
 update_dates "2022-12-01" "2022-12-31"
 npm start
-
 update_dates "2023-01-01" "2023-01-31"
 npm start
 update_dates "2023-02-01" "2023-02-28"

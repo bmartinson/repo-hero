@@ -394,7 +394,7 @@ function _configureApp() {
       }
     }), {
       maxRequests: 30,
-      perMilliseconds: 60000,
+      perMilliseconds: 30000,
     });
 
     fetch('https://api.github.com/rate_limit', {

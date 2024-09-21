@@ -40,6 +40,7 @@ let _CONFIG = null; // any (config.json)
 let _ALIASES = {}; // { key: [value: string[]] }
 let _RESULTS = {}; // any (results_timestamp.json)
 let _GITHUB_API = null; // axios instance for the GitHub API
+let _GITHUB_SEARCH_API = null; // axios instance for the GitHub API
 let _CACHE = null; // any (cache.json)
 
 // ----- helper functions -----
@@ -185,7 +186,7 @@ async function getFromGitHubAPI(req, options) {
 
   try {
     console.log(`Fetching data from GitHub API: ${req} with options: ${JSON.stringify(options)}`);
-    const response = await _GITHUB_API.get(req, options);
+    const response = req.startsWith('/search/') ? await _GITHUB_SEARCH_API.get(req, options) : await _GITHUB_API.get(req, options);
 
     if (response?.status !== 200) {
       return response;
@@ -382,6 +383,18 @@ function _configureApp() {
     }), {
       maxRequests: 5,
       perMilliseconds: 2000,
+    });
+
+    // create a specific API instance for a slower search rate limit (30 per minute)
+    _GITHUB_SEARCH_API = rateLimit(axios.create({
+      baseURL: 'https://api.github.com',
+      headers: {
+        'Authorization': `token ${_CONFIG.tokens.github}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    }), {
+      maxRequests: 30,
+      perMilliseconds: 60000,
     });
 
     fetch('https://api.github.com/rate_limit', {

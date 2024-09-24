@@ -180,7 +180,7 @@ async function getFromGitHubAPI(req, options) {
     }
   }
 
-  if (_CACHE[key]) {
+  if (!_CONFIG?.skipCache && _CACHE[key]) {
     return _CACHE[key];
   }
 

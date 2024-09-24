@@ -18,7 +18,7 @@ for (const [key, value] of Object.entries(data)) {
 
   // Add teamScore to trendingTeamScore
   if (!trendingTeamScore[date]) {
-    trendingTeamScore[date] = value.teamScore || 0;
+    trendingTeamScore[date] = +value.teamScore > 0 ? +value.teamScore : 0 || 0;
   }
 
   // Add totalPullRequests to totalPullRequests
@@ -42,9 +42,7 @@ const writeCsv = (filename, dataObj, isTeamScore = false) => {
   const dates = Array.from(new Set(Object.keys(dataObj))).sort();
   const csvWriter = createCsvWriter({
     path: path.join('.results_history', filename),
-    header: isTeamScore
-      ? [{ id: 'date', title: 'date' }, { id: 'teamScore', title: 'teamScore' }]
-      : [{ id: 'date', title: 'date' }, { id: 'value', title: 'value' }]
+    header: [{ id: 'date', title: 'date' }, { id: 'value', title: 'value' }]
   });
 
   const records = dates.map(date => ({ date, value: dataObj[date] }));

@@ -20,6 +20,11 @@ fs.readdir(resultsDir, (err, files) => {
     }
 
     const filePath = path.join(resultsDir, file);
+
+    if (filePath.toLowerCase().indexOf('.ds_store') >= 0) {
+      return;
+    }
+
     const fileNameWithoutExt = path.parse(file).name;
 
     // Read and parse each JSON file

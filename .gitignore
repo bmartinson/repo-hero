@@ -135,4 +135,4 @@ dist
 config.json
 cache.json
 **/.results_cache/
-**/.results_history/
+**/.results_history*

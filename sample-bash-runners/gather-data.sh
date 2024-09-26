@@ -12,27 +12,35 @@ start_year=$1
 end_year=$2
 
 for year in $(seq $start_year $end_year); do
-  for month in {01..12}; do
-    case $month in
-      01|03|05|07|08|10|12)
-        days=31
-        ;;
-      04|06|09|11)
-        days=30
-        ;;
-      02)
-        if (( (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0) )); then
-          days=29
-        else
-          days=28
-        fi
-        ;;
-    esac
-    start_date="$year-$month-01"
-    end_date="$year-$month-$days"
-    update_dates "$start_date" "$end_date"
+  update_dates "$year-01-01" "$year-01-31"
+  npm start
+  if (( (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0) )); then
+    update_dates "$year-02-01" "$year-02-29"
     npm start
-  done
+  else
+    update_dates "$year-02-01" "$year-02-28"
+    npm start
+  fi
+  update_dates "$year-03-01" "$year-03-31"
+  npm start
+  update_dates "$year-04-01" "$year-04-30"
+  npm start
+  update_dates "$year-05-01" "$year-05-31"
+  npm start
+  update_dates "$year-06-01" "$year-06-30"
+  npm start
+  update_dates "$year-07-01" "$year-07-31"
+  npm start
+  update_dates "$year-08-01" "$year-08-31"
+  npm start
+  update_dates "$year-09-01" "$year-09-30"
+  npm start
+  update_dates "$year-10-01" "$year-10-31"
+  npm start
+  update_dates "$year-11-01" "$year-11-30"
+  npm start
+  update_dates "$year-12-01" "$year-12-31"
+  npm start
 done
 
 # set to what I want the ending config state to be

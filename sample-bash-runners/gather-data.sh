@@ -8,30 +8,32 @@ update_dates() {
     '.startDate = $start_date | .endDate = $end_date' config.json > temp.json && mv temp.json config.json
 }
 
-update_dates "2019-01-01" "2019-01-31"
-npm start
-update_dates "2019-02-01" "2019-02-28"
-npm start
-update_dates "2019-03-01" "2019-03-31"
-npm start
-update_dates "2019-04-01" "2019-04-30"
-npm start
-update_dates "2019-05-01" "2019-05-31"
-npm start
-update_dates "2019-06-01" "2019-06-30"
-npm start
-update_dates "2019-07-01" "2019-07-31"
-npm start
-update_dates "2019-08-01" "2019-08-31"
-npm start
-update_dates "2019-09-01" "2019-09-30"
-npm start
-update_dates "2019-10-01" "2019-10-31"
-npm start
-update_dates "2019-11-01" "2019-11-30"
-npm start
-update_dates "2019-12-01" "2019-12-31"
-npm start
+start_year=$1
+end_year=$2
+
+for year in $(seq $start_year $end_year); do
+  for month in {01..12}; do
+    case $month in
+      01|03|05|07|08|10|12)
+        days=31
+        ;;
+      04|06|09|11)
+        days=30
+        ;;
+      02)
+        if (( (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0) )); then
+          days=29
+        else
+          days=28
+        fi
+        ;;
+    esac
+    start_date="$year-$month-01"
+    end_date="$year-$month-$days"
+    update_dates "$start_date" "$end_date"
+    npm start
+  done
+done
 
 # set to what I want the ending config state to be
 update_dates "2023-09-01" "2024-09-01"

@@ -8,29 +8,29 @@ update_dates() {
     '.startDate = $start_date | .endDate = $end_date' config.json > temp.json && mv temp.json config.json
 }
 
-update_dates "2020-01-01" "2020-01-31"
+update_dates "2019-01-01" "2019-01-31"
 npm start
-update_dates "2020-02-01" "2020-02-28"
+update_dates "2019-02-01" "2019-02-28"
 npm start
-update_dates "2020-03-01" "2020-03-31"
+update_dates "2019-03-01" "2019-03-31"
 npm start
-update_dates "2020-04-01" "2020-04-30"
+update_dates "2019-04-01" "2019-04-30"
 npm start
-update_dates "2020-05-01" "2020-05-31"
+update_dates "2019-05-01" "2019-05-31"
 npm start
-update_dates "2020-06-01" "2020-06-30"
+update_dates "2019-06-01" "2019-06-30"
 npm start
-update_dates "2020-07-01" "2020-07-31"
+update_dates "2019-07-01" "2019-07-31"
 npm start
-update_dates "2020-08-01" "2020-08-31"
+update_dates "2019-08-01" "2019-08-31"
 npm start
-update_dates "2020-09-01" "2020-09-30"
+update_dates "2019-09-01" "2019-09-30"
 npm start
-update_dates "2020-10-01" "2020-10-31"
+update_dates "2019-10-01" "2019-10-31"
 npm start
-update_dates "2020-11-01" "2020-11-30"
+update_dates "2019-11-01" "2019-11-30"
 npm start
-update_dates "2020-12-01" "2020-12-31"
+update_dates "2019-12-01" "2019-12-31"
 npm start
 
 # set to what I want the ending config state to be

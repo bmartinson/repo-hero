@@ -804,6 +804,11 @@ _processProjects().finally(() => {
         index = usersArray.findIndex(obj => obj['name'] === user?.toLowerCase());
 
         if (index !== -1) {
+          if (usersArray[index]?.score > 0) {
+            // if the ignored user had a score, it was previously counted as active, so reduce
+            _RESULTS.activeUsers--;
+          }
+
           usersArray.splice(index, 1);
         }
       });

@@ -2,6 +2,22 @@ const fs = require('fs');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const path = require('path');
 
+// Clear existing CSV files
+fs.readdir(resultsDir, (err, files) => {
+  if (err) {
+    console.error('Error reading directory:', err);
+    return;
+  }
+
+  files.forEach(file => {
+    if (file.endsWith('.csv')) {
+      const filePath = path.join(resultsDir, file);
+      fs.unlinkSync(filePath);
+      console.log(`Deleted existing CSV file: ${file}`);
+    }
+  });
+});
+
 // Load JSON data
 const data = JSON.parse(fs.readFileSync(path.join('.results_history', 'combined_results.json'), 'utf8'));
 

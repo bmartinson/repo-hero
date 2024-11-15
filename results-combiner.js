@@ -6,6 +6,12 @@ const outputFilePath = path.join(resultsDir, 'combined_results.json');
 
 const combinedResults = {};
 
+// Check if combined_results.json exists and delete it if it does
+if (fs.existsSync(outputFilePath)) {
+  fs.unlinkSync(outputFilePath);
+  console.log('Existing combined_results.json deleted');
+}
+
 // Read all files in the .results_history directory
 fs.readdir(resultsDir, (err, files) => {
   if (err) {

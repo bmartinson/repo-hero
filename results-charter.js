@@ -2,22 +2,6 @@ const fs = require('fs');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const path = require('path');
 
-// Clear existing CSV files
-fs.readdir(resultsDir, (err, files) => {
-  if (err) {
-    console.error('Error reading directory:', err);
-    return;
-  }
-
-  files.forEach(file => {
-    if (file.endsWith('.csv')) {
-      const filePath = path.join(resultsDir, file);
-      fs.unlinkSync(filePath);
-      console.log(`Deleted existing CSV file: ${file}`);
-    }
-  });
-});
-
 // Load JSON data
 const data = JSON.parse(fs.readFileSync(path.join('.results_history', 'combined_results.json'), 'utf8'));
 
@@ -67,6 +51,14 @@ const writeCsv = (filename, dataObj) => {
   const records = Object.entries(dataObj).map(([name, dates]) => ({ name, ...dates }));
   csvWriter.writeRecords(records);
 };
+
+const outputFiles = ['trending_score.csv', 'trending_commits.csv', 'trending_pullRequests.csv', 'trending_filesTouched.csv', 'trending_reviews.csv', 'trending_loc.csv'];
+
+outputFiles.forEach(outputFilePath => {
+  if (fs.existsSync(outputFilePath)) {
+    fs.unlinkSync(outputFilePath);
+  }
+});
 
 // Write each object to its respective CSV file
 writeCsv('trending_score.csv', trendingScore);

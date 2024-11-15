@@ -4,7 +4,8 @@
   "description": "Configurable product management analysis tool for analyzing the health of GitHub repositories and their contributors.",
   "main": "gather-and-rank.js",
   "scripts": {
-    "start": "node gather-and-rank.js",
+    "start": "node gather-and-rank.js && node results-combiner.js && node results-charter.js && node results-team-charter.js",
+    "gather": "node gather-and-rank.js",
     "combine": "node results-combiner.js",
     "chart": "node results-charter.js; node results-team-charter.js",
     "test": "echo \"Error: no test specified\" && exit 1"

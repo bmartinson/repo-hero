@@ -50,6 +50,14 @@ const writeCsv = (filename, dataObj, isTeamScore = false) => {
   csvWriter.writeRecords(records);
 };
 
+const outputFiles = ['trending_teamScore.csv', 'trending_teamPullRequests.csv', 'trending_teamPredictedPullRequests.csv', 'trending_teamPredictedDeliverablesPerActiveUser.csv'];
+
+outputFiles.forEach(outputFilePath => {
+  if (fs.existsSync(outputFilePath)) {
+    fs.unlinkSync(outputFilePath);
+  }
+});
+
 // Write each object to its respective CSV file
 writeCsv('trending_teamScore.csv', trendingTeamScore, true);
 writeCsv('trending_teamPullRequests.csv', totalPullRequests);

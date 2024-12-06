@@ -4,7 +4,7 @@ A configurable product management analysis toolkit for analyzing the health of g
 ## Application Configuration
 A CLI-based configuration wizard will be included as part of the package in the future to help you build your application config. This configuration is stored at the same directory level as `gather-and-rank.js` and is named `config.json`. Here is an example of a usable application configuration:
 
-*All top level properties are required, except for `aliases`, `ignoreUsers`, `commitsPerPullRequest`*
+*All top level properties are required, except for `aliases`, `ignoreUsers`, `commitsPerPullRequest`, `resultsName`*
 
 ```javascript
 {
@@ -14,6 +14,7 @@ A CLI-based configuration wizard will be included as part of the package in the 
   "directory": "/Users/bmartinson/Development", // where to look for .git projects
   "startDate": "2023-09-01", // the starting range for analysis
   "endDate": "2024-09-01", // the ending range for analysis
+  "resultsName": "2024-09", // the name of the results json file, this is optional
   "commitsPerPullRequest": 12.5, // if your projects don't use pull requests and rely mostly on commits, use this to synthesize deliverables (pseudo-PRs)
   "projects": [
     "@bmartinson/repo-hero" // these are all of the project including owner name owner/repo - @ handles should be included

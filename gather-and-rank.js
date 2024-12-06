@@ -464,7 +464,13 @@ function _saveResults() {
 
   // Create the filename with the current Unix timestamp
   const timestamp = Date.now();
-  const resultsFilePath = path.join(resultsDir, `results_${timestamp}.json`);
+  const resultsFilePath = '';
+
+  if (!!_CONFIG?.resultsName) {
+    path.join(resultsDir, `${_CONFIG?.resultsName}.json`);
+  } else {
+    path.join(resultsDir, `results_${timestamp}.json`);
+  }
 
   // Write the contents of the _RESULTS object to the new file
   fs.writeFileSync(resultsFilePath, JSON.stringify(_RESULTS, null, 2), 'utf8');

@@ -467,9 +467,9 @@ function _saveResults() {
   const resultsFilePath = '';
 
   if (!!_CONFIG?.resultsName) {
-    path.join(resultsDir, `${_CONFIG?.resultsName}.json`);
+    resultsFilePath = path.join(resultsDir, `${_CONFIG?.resultsName}.json`);
   } else {
-    path.join(resultsDir, `results_${timestamp}.json`);
+    resultsFilePath = path.join(resultsDir, `results_${timestamp}.json`);
   }
 
   // Write the contents of the _RESULTS object to the new file

@@ -464,7 +464,7 @@ function _saveResults() {
 
   // Create the filename with the current Unix timestamp
   const timestamp = Date.now();
-  const resultsFilePath = '';
+  let resultsFilePath = '';
 
   if (!!_CONFIG?.resultsName) {
     resultsFilePath = path.join(resultsDir, `${_CONFIG?.resultsName}.json`);

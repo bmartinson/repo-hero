@@ -181,6 +181,7 @@ async function getFromGitHubAPI(req, options) {
   }
 
   if (!_CONFIG?.skipCache && _CACHE[key]) {
+    console.warn('~~~ Using cached data ~~~');
     return _CACHE[key];
   }
 
@@ -648,7 +649,7 @@ function _processProjects() {
                         _RESULTS.users[reviewerAlias] = {};
                       }
 
-                      if (!_RESULTS.users[alias].reviews) {
+                      if (!_RESULTS.users[reviewerAlias].reviews) {
                         _RESULTS.users[reviewerAlias].reviews = 0;
                       }
 

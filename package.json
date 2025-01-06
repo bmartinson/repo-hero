@@ -4,11 +4,12 @@
   "description": "Configurable product management analysis tool for analyzing the health of GitHub repositories and their contributors.",
   "main": "gather-and-rank.js",
   "scripts": {
+    "format": "npx prettier --write . $@",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "rm -rf .results_history/*.csv && rm -rf .results_history/combined_results.json && node gather-and-rank.js && node results-combiner.js && node results-charter.js && node results-team-charter.js",
     "gather": "node gather-and-rank.js",
     "combine": "rm -rf .results_history/combined_results.json && node results-combiner.js",
-    "chart": "rm -rf .results_history/*.csv && node results-charter.js; node results-team-charter.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "chart": "rm -rf .results_history/*.csv && node results-charter.js; node results-team-charter.js"
   },
   "repository": {
     "type": "git",
@@ -39,5 +40,9 @@
     "node-fetch": "^3.3.2",
     "path": "^0.12.7",
     "uuid": "^11.0.4"
+  },
+  "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^5.2.1",
+    "prettier": "^3.4.2"
   }
 }

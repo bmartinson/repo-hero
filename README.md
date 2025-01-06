@@ -1,5 +1,5 @@
 # repo-hero
-A configurable product management analysis toolkit for analyzing the health of git repositories and their contributors.
+A configurable product management analysis toolkit for analyzing the health of git repositories and their contributors. You may consider this project in an **alpha** state. It is actively being developed in accordance with real world needs. Contributions are welcome.
 
 ## Application Configuration
 A CLI-based configuration wizard will be included as part of the package in the future to help you build your application config. This configuration is stored at the same directory level as `gather-and-rank.js` and is named `config.json`. Here is an example of a usable application configuration:

@@ -42,6 +42,10 @@ fs.readdir(resultsDir, (err, files) => {
   });
 
   // Write the combined results to a new JSON file
-  fs.writeFileSync(outputFilePath, JSON.stringify(combinedResults, null, 2), 'utf-8');
+  fs.writeFileSync(
+    outputFilePath,
+    JSON.stringify(combinedResults, null, 2),
+    'utf-8'
+  );
   console.log('Combined results saved to', outputFilePath);
 });

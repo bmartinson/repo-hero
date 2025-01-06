@@ -48,98 +48,35 @@
       "treering-devops",
       ""
     ],
-    "Aaron Greco": [
-      "grecstar"
-    ],
-    "Brian Martinson": [
-      "bmartinson",
-      "bmartinson13",
-      "bmartinson-tr"
-    ],
+    "Aaron Greco": ["grecstar"],
+    "Brian Martinson": ["bmartinson", "bmartinson13", "bmartinson-tr"],
     "William Chidyausiku": [
       "William",
       "fromsomnia",
       "William Chidyasiku",
       "william chidyausiku"
     ],
-    "Daniel Steffe": [
-      "Skippy",
-      "idiodabble"
-    ],
-    "George Ku": [
-      "George",
-      "gku036"
-    ],
-    "Benji Wolfenberger": [
-      "benjiwolf",
-      "benji wolfenberger",
-      "bwolfenberger"
-    ],
-    "Irene Chan": [
-      "irenechan-treering"
-    ],
-    "Win Min": [
-      "win-treering",
-      "win min"
-    ],
-    "John Moskwa": [
-      "jmoskwa6"
-    ],
-    "Arda Ungun": [
-      "ardatr",
-      "arda ungun"
-    ],
-    "Nick Pasto": [
-      "Nick",
-      "pastotreering"
-    ],
-    "Kevin Zerber": [
-      "kzerber"
-    ],
-    "Max Whitaker": [
-      "MaxisG"
-    ],
-    "Brandon Long": [
-      "brandonlong",
-      "brandon long",
-      "brandon074"
-    ],
-    "Dumka": [
-      "dumka777",
-      "dmitriy kravchenko"
-    ],
-    "Kasper Kuo": [
-      "kasperkuo"
-    ],
-    "Mike Mitchell": [
-      "mike-treering"
-    ],
-    "Marissa Hing": [
-      "marissahing"
-    ],
-    "Jack Mullis": [
-      "jackmullis"
-    ],
-    "Jay Ng": [
-      "ngchwanlii"
-    ],
-    "Elle Louie": [
-      "ElleLouie"
-    ],
-    "Philip Basnage": [
-      "pbasnage",
-      "pbasnagetr",
-      "philiptreering"
-    ],
-    "Monika Israt": [
-      "imonika",
-      "monika israt"
-    ],
-    "Kyle Burt": [
-      "kyleburt11495"
-    ]
+    "Daniel Steffe": ["Skippy", "idiodabble"],
+    "George Ku": ["George", "gku036"],
+    "Benji Wolfenberger": ["benjiwolf", "benji wolfenberger", "bwolfenberger"],
+    "Irene Chan": ["irenechan-treering"],
+    "Win Min": ["win-treering", "win min"],
+    "John Moskwa": ["jmoskwa6"],
+    "Arda Ungun": ["ardatr", "arda ungun"],
+    "Nick Pasto": ["Nick", "pastotreering"],
+    "Kevin Zerber": ["kzerber"],
+    "Max Whitaker": ["MaxisG"],
+    "Brandon Long": ["brandonlong", "brandon long", "brandon074"],
+    "Dumka": ["dumka777", "dmitriy kravchenko"],
+    "Kasper Kuo": ["kasperkuo"],
+    "Mike Mitchell": ["mike-treering"],
+    "Marissa Hing": ["marissahing"],
+    "Jack Mullis": ["jackmullis"],
+    "Jay Ng": ["ngchwanlii"],
+    "Elle Louie": ["ElleLouie"],
+    "Philip Basnage": ["pbasnage", "pbasnagetr", "philiptreering"],
+    "Monika Israt": ["imonika", "monika israt"],
+    "Kyle Burt": ["kyleburt11495"]
   },
-  "ignoreUsers": [
-    "DevOps Deployment"
-  ]
+  "ignoreUsers": ["DevOps Deployment"]
 }

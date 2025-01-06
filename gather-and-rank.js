@@ -1,41 +1,42 @@
 const axios = require('axios');
 const rateLimit = require('axios-rate-limit');
 const exec = require('child_process').exec;
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const fetch = (...args) =>
+  import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 // ----- nodejs helper variables -----
-_cReset = "\x1b[0m"
-_cBright = "\x1b[1m"
-_cDim = "\x1b[2m"
-_cUnderscore = "\x1b[4m"
-_cBlink = "\x1b[5m"
-_cReverse = "\x1b[7m"
-_cHidden = "\x1b[8m"
-_cFgBlack = "\x1b[30m"
-_cFgRed = "\x1b[31m"
-_cFgGreen = "\x1b[32m"
-_cFgYellow = "\x1b[33m"
-_cFgBlue = "\x1b[34m"
-_cFgMagenta = "\x1b[35m"
-_cFgCyan = "\x1b[36m"
-_cFgWhite = "\x1b[37m"
-_cFgGray = "\x1b[90m"
-_cBgBlack = "\x1b[40m"
-_cBgRed = "\x1b[41m"
-_cBgGreen = "\x1b[42m"
-_cBgYellow = "\x1b[43m"
-_cBgBlue = "\x1b[44m"
-_cBgMagenta = "\x1b[45m"
-_cBgCyan = "\x1b[46m"
-_cBgWhite = "\x1b[47m"
-_cBgGray = "\x1b[100m"
+_cReset = '\x1b[0m';
+_cBright = '\x1b[1m';
+_cDim = '\x1b[2m';
+_cUnderscore = '\x1b[4m';
+_cBlink = '\x1b[5m';
+_cReverse = '\x1b[7m';
+_cHidden = '\x1b[8m';
+_cFgBlack = '\x1b[30m';
+_cFgRed = '\x1b[31m';
+_cFgGreen = '\x1b[32m';
+_cFgYellow = '\x1b[33m';
+_cFgBlue = '\x1b[34m';
+_cFgMagenta = '\x1b[35m';
+_cFgCyan = '\x1b[36m';
+_cFgWhite = '\x1b[37m';
+_cFgGray = '\x1b[90m';
+_cBgBlack = '\x1b[40m';
+_cBgRed = '\x1b[41m';
+_cBgGreen = '\x1b[42m';
+_cBgYellow = '\x1b[43m';
+_cBgBlue = '\x1b[44m';
+_cBgMagenta = '\x1b[45m';
+_cBgCyan = '\x1b[46m';
+_cBgWhite = '\x1b[47m';
+_cBgGray = '\x1b[100m';
 
 // ----- global variables -----
-let _START_DATE = null // string | null (YYYY-MM-DD)
-let _END_DATE = null // string | null (YYYY-MM-DD)
+let _START_DATE = null; // string | null (YYYY-MM-DD)
+let _END_DATE = null; // string | null (YYYY-MM-DD)
 let _CONFIG = null; // any (config.json)
 let _ALIASES = {}; // { key: [value: string[]] }
 let _RESULTS = {}; // any (results_timestamp.json)
@@ -170,8 +171,8 @@ async function getFromGitHubAPI(req, options) {
         return JSON.parse(fileContent);
       });
 
-      Object.values(jsonData).forEach((data) => {
-        Object.keys(data).forEach((key) => {
+      Object.values(jsonData).forEach(data => {
+        Object.keys(data).forEach(key => {
           _CACHE[key] = data[key];
         });
       });
@@ -186,8 +187,12 @@ async function getFromGitHubAPI(req, options) {
   }
 
   try {
-    console.log(`Fetching data from GitHub API: ${req} with options: ${JSON.stringify(options)}`);
-    const response = req.startsWith('/search/') ? await _GITHUB_SEARCH_API.get(req, options) : await _GITHUB_API.get(req, options);
+    console.log(
+      `Fetching data from GitHub API: ${req} with options: ${JSON.stringify(options)}`
+    );
+    const response = req.startsWith('/search/')
+      ? await _GITHUB_SEARCH_API.get(req, options)
+      : await _GITHUB_API.get(req, options);
 
     if (response?.status !== 200) {
       return response;
@@ -208,11 +213,13 @@ async function getFromGitHubAPI(req, options) {
 
     // Create the filename with the current Unix timestamp
     const timestamp = Date.now();
-    const cacheFilePath = path.join(cacheDir, `cache_${timestamp}_${uuidv4()}.json`);
+    const cacheFilePath = path.join(
+      cacheDir,
+      `cache_${timestamp}_${uuidv4()}.json`
+    );
 
     // Write the JSON string to cache_xxx_yyy.json
-    fs.writeFile(cacheFilePath, cacheData, () => {
-    });
+    fs.writeFile(cacheFilePath, cacheData, () => {});
 
     return response;
   } catch (error) {
@@ -243,12 +250,15 @@ async function fetchAllContributors(project) {
 
   while (hasMorePages) {
     try {
-      const response = await getFromGitHubAPI(`/repos/${project.replace('@', '')}/contributors`, {
-        params: {
-          per_page: 100, // Maximum number of results per page
-          page: page
+      const response = await getFromGitHubAPI(
+        `/repos/${project.replace('@', '')}/contributors`,
+        {
+          params: {
+            per_page: 100, // Maximum number of results per page
+            page: page,
+          },
         }
-      });
+      );
 
       contributors = contributors.concat(response.data);
 
@@ -257,7 +267,10 @@ async function fetchAllContributors(project) {
       hasMorePages = linkHeader && linkHeader.includes('rel="next"');
       page++;
     } catch (error) {
-      console.error(`Error fetching contributors for ${project}:`, error.message);
+      console.error(
+        `Error fetching contributors for ${project}:`,
+        error.message
+      );
       hasMorePages = false;
     }
   }
@@ -278,12 +291,15 @@ async function fetchAllPullRequests(repo) {
 
   while (hasMorePages) {
     try {
-      const response = await getFromGitHubAPI(`/search/issues?q=repo:${repo.replace('@', '')}+draft:false+is:pr+created:${_START_DATE}..${_END_DATE}`, {
-        params: {
-          per_page: 100, // Maximum number of results per page
-          page: page
+      const response = await getFromGitHubAPI(
+        `/search/issues?q=repo:${repo.replace('@', '')}+draft:false+is:pr+created:${_START_DATE}..${_END_DATE}`,
+        {
+          params: {
+            per_page: 100, // Maximum number of results per page
+            page: page,
+          },
         }
-      });
+      );
 
       pullRequests = pullRequests.concat(response.data.items);
 
@@ -316,21 +332,26 @@ function discoverProject(project) {
     console.log(`Cloning ${_cFgBlue}${project}${_cReset}...`);
 
     return new Promise((resolve, reject) => {
-      executeCommand(`git clone git@github.com:${scopeName ? `${scopeName}/` : ''}${getPackageName(project)}.git`, _CONFIG.directory).then(() => {
-        // Make sure the results object is defined
-        if (!_RESULTS) {
-          _RESULTS = {};
-        }
+      executeCommand(
+        `git clone git@github.com:${scopeName ? `${scopeName}/` : ''}${getPackageName(project)}.git`,
+        _CONFIG.directory
+      )
+        .then(() => {
+          // Make sure the results object is defined
+          if (!_RESULTS) {
+            _RESULTS = {};
+          }
 
-        // Make sure the project is defined in the results object
-        if (!_RESULTS[project]) {
-          _RESULTS[project] = {};
-        }
+          // Make sure the project is defined in the results object
+          if (!_RESULTS[project]) {
+            _RESULTS[project] = {};
+          }
 
-        resolve(project);
-      }).catch((error) => {
-        reject(error);
-      });
+          resolve(project);
+        })
+        .catch(error => {
+          reject(error);
+        });
     });
   } else {
     console.log(`Project ${_cFgGreen}${project}${_cReset} was discovered.`);
@@ -347,10 +368,7 @@ function discoverProject(project) {
 function _configureApp() {
   const configFilePath = path.join(__dirname, 'config.json');
   // Synchronously read the file
-  const configFileContent = fs.readFileSync(
-    configFilePath,
-    'utf8',
-  );
+  const configFileContent = fs.readFileSync(configFilePath, 'utf8');
 
   // Check if the file path exists
   if (!fs.existsSync(configFilePath)) {
@@ -362,7 +380,11 @@ function _configureApp() {
   _CONFIG = JSON.parse(configFileContent);
 
   // Confirm that the directory configuration is valid
-  if (!_CONFIG || !_CONFIG.directory || !isValidDirectoryPath(_CONFIG.directory)) {
+  if (
+    !_CONFIG ||
+    !_CONFIG.directory ||
+    !isValidDirectoryPath(_CONFIG.directory)
+  ) {
     console.error('Invalid directory path provided in the configuration file.');
     process.exit(1);
   }
@@ -383,11 +405,11 @@ function _configureApp() {
   if (_CONFIG?.aliases) {
     _ALIASES = {};
 
-    Object.keys(_CONFIG.aliases).forEach((key) => {
+    Object.keys(_CONFIG.aliases).forEach(key => {
       const values = _CONFIG.aliases[key];
 
       if (values && values.length > 0) {
-        values.forEach((value) => {
+        values.forEach(value => {
           value = removeEmailAccount(value.toLowerCase()).trim();
           _ALIASES[value] = removeEmailAccount(key.toLowerCase()).trim();
         });
@@ -413,42 +435,55 @@ function _configureApp() {
 
   // Configure the GitHub API
   if (_CONFIG?.tokens?.github) {
-    _GITHUB_API = rateLimit(axios.create({
-      baseURL: 'https://api.github.com',
-      headers: {
-        'Authorization': `token ${_CONFIG.tokens.github}`,
-        'Accept': 'application/vnd.github.v3+json'
+    _GITHUB_API = rateLimit(
+      axios.create({
+        baseURL: 'https://api.github.com',
+        headers: {
+          Authorization: `token ${_CONFIG.tokens.github}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      }),
+      {
+        maxRequests: 5,
+        perMilliseconds: 2000,
       }
-    }), {
-      maxRequests: 5,
-      perMilliseconds: 2000,
-    });
+    );
 
     // create a specific API instance for a slower search rate limit (30 per minute)
-    _GITHUB_SEARCH_API = rateLimit(axios.create({
-      baseURL: 'https://api.github.com',
-      headers: {
-        'Authorization': `token ${_CONFIG.tokens.github}`,
-        'Accept': 'application/vnd.github.v3+json'
+    _GITHUB_SEARCH_API = rateLimit(
+      axios.create({
+        baseURL: 'https://api.github.com',
+        headers: {
+          Authorization: `token ${_CONFIG.tokens.github}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      }),
+      {
+        maxRequests: 30,
+        perMilliseconds: 30000,
       }
-    }), {
-      maxRequests: 30,
-      perMilliseconds: 30000,
-    });
+    );
 
     fetch('https://api.github.com/rate_limit', {
       headers: {
-        'Authorization': `token ${_CONFIG.tokens.github}`
-      }
-    }).then(response => response.json())
-      .then((data) => {
+        Authorization: `token ${_CONFIG.tokens.github}`,
+      },
+    })
+      .then(response => response.json())
+      .then(data => {
         console.log(`\n${_cFgBlue}GitHub API${_cReset} rate limits:`);
-        console.log(`Used ${data.rate.used} out of ${data.rate.limit} GitHub core requests. Reset time: ${new Date(data.rate.reset * 1000).toLocaleString()}`);
-        console.log(`Used ${data.resources.search.used} out of ${data.resources.search.limit} GitHub search requests. Reset time: ${new Date(data.resources.search.reset * 1000).toLocaleString()}`);
+        console.log(
+          `Used ${data.rate.used} out of ${data.rate.limit} GitHub core requests. Reset time: ${new Date(data.rate.reset * 1000).toLocaleString()}`
+        );
+        console.log(
+          `Used ${data.resources.search.used} out of ${data.resources.search.limit} GitHub search requests. Reset time: ${new Date(data.resources.search.reset * 1000).toLocaleString()}`
+        );
       })
       .catch(error => console.error('Error!', error));
   } else {
-    console.warn('GitHub API token not configured. Consider adding config.json .tokens.github for more stats!');
+    console.warn(
+      'GitHub API token not configured. Consider adding config.json .tokens.github for more stats!'
+    );
   }
 }
 
@@ -494,7 +529,7 @@ function _processProjects() {
   }
 
   if (_CONFIG && _CONFIG.projects) {
-    _CONFIG.projects.forEach((project) => {
+    _CONFIG.projects.forEach(project => {
       // Make sure that the project has an entry
       if (!_RESULTS[project]) {
         _RESULTS[project] = {};
@@ -508,74 +543,101 @@ function _processProjects() {
       // Process projects for git analysis
       processingProjects.push(
         new Promise((resolve, reject) => {
-          discoverProject(project).then((project) => {
-            let packageName = getPackageName(project);
+          discoverProject(project)
+            .then(project => {
+              let packageName = getPackageName(project);
 
-            // Count the commits in the project
-            executeCommand(`git log --since="${_START_DATE}T00:00:00-00:00" --until="${_END_DATE}T00:00:00-00:00" --pretty=format:"" | wc -l | xargs`, path.join(_CONFIG.directory, packageName)).then((commits) => {
-              // Do some validation ont he commits output to ensure we stay numeric
-              if (!commits || isNaN(commits)) {
-                commits = 0;
-              } else {
-                commits = parseInt(commits);
-              }
+              // Count the commits in the project
+              executeCommand(
+                `git log --since="${_START_DATE}T00:00:00-00:00" --until="${_END_DATE}T00:00:00-00:00" --pretty=format:"" | wc -l | xargs`,
+                path.join(_CONFIG.directory, packageName)
+              )
+                .then(commits => {
+                  // Do some validation ont he commits output to ensure we stay numeric
+                  if (!commits || isNaN(commits)) {
+                    commits = 0;
+                  } else {
+                    commits = parseInt(commits);
+                  }
 
-              _RESULTS.totalCommits += commits;
-              _RESULTS[project].commits += commits;
+                  _RESULTS.totalCommits += commits;
+                  _RESULTS[project].commits += commits;
 
-              // Get the list of users that contributed to the project
-              executeCommand(`git log --since="${_START_DATE}T00:00:00-00:00" --until="${_END_DATE}T00:00:00-00:00" --format='%cN <%cE>' | sort -u`, path.join(_CONFIG.directory, packageName)).then((users) => {
-                users = users.split('\n');
+                  // Get the list of users that contributed to the project
+                  executeCommand(
+                    `git log --since="${_START_DATE}T00:00:00-00:00" --until="${_END_DATE}T00:00:00-00:00" --format='%cN <%cE>' | sort -u`,
+                    path.join(_CONFIG.directory, packageName)
+                  )
+                    .then(users => {
+                      users = users.split('\n');
 
-                processUserCommits(packageName).then(() => {
-                  // we are complete processing commits
-                  resolve();
-                }).catch((error) => {
-                  console.error(`Error processing user commits for ${project}:`, error);
+                      processUserCommits(packageName)
+                        .then(() => {
+                          // we are complete processing commits
+                          resolve();
+                        })
+                        .catch(error => {
+                          console.error(
+                            `Error processing user commits for ${project}:`,
+                            error
+                          );
+                          reject(error);
+                        });
+                    })
+                    .catch(error => {
+                      console.error(
+                        `Error fetching users for ${project}:`,
+                        error
+                      );
+                      reject(error);
+                    });
+                })
+                .catch(error => {
+                  console.error(
+                    `Error counting commits for ${project}:`,
+                    error
+                  );
                   reject(error);
                 });
-              }).catch((error) => {
-                console.error(`Error fetching users for ${project}:`, error);
-                reject(error);
-              });
-            }).catch((error) => {
-              console.error(`Error counting commits for ${project}:`, error);
+            })
+            .catch(error => {
+              console.error(`Error discovering ${project}:`, error);
               reject(error);
             });
-          }).catch((error) => {
-            console.error(`Error discovering ${project}:`, error);
-            reject(error);
-          });
         })
       );
 
       // Fetch all contributors for all known projects
       processingContributors.push(
         new Promise((contResolve, contReject) => {
-          fetchAllContributors(project).then((projectContributors) => {
-            projectContributors.forEach((contributor) => {
-              if (contributors.indexOf(contributor.login) === -1) {
-                contributors.push(contributor.login);
-              }
-            });
+          fetchAllContributors(project)
+            .then(projectContributors => {
+              projectContributors.forEach(contributor => {
+                if (contributors.indexOf(contributor.login) === -1) {
+                  contributors.push(contributor.login);
+                }
+              });
 
-            contResolve();
-          }).catch((error) => {
-            contReject();
-          });
+              contResolve();
+            })
+            .catch(error => {
+              contReject();
+            });
         })
       );
 
       // Fetch all pull requests for all known projects
       processingPullRequests.push(
         new Promise((prResolve, prReject) => {
-          fetchAllPullRequests(project).then((projectPullRequests) => {
-            pullRequests.push(...projectPullRequests);
+          fetchAllPullRequests(project)
+            .then(projectPullRequests => {
+              pullRequests.push(...projectPullRequests);
 
-            prResolve();
-          }).catch((error) => {
-            prReject();
-          });
+              prResolve();
+            })
+            .catch(error => {
+              prReject();
+            });
         })
       );
     });
@@ -587,16 +649,21 @@ function _processProjects() {
     }
   }
 
-  return Promise.all(processingProjects.concat(processingPullRequests).concat(processingContributors)).then(() => {
-    const rangedPullRequests = pullRequests.filter(pr =>
-      new Date(pr.created_at) >= new Date(_START_DATE) &&
-      new Date(pr.created_at) <= new Date(_END_DATE)
+  return Promise.all(
+    processingProjects
+      .concat(processingPullRequests)
+      .concat(processingContributors)
+  ).then(() => {
+    const rangedPullRequests = pullRequests.filter(
+      pr =>
+        new Date(pr.created_at) >= new Date(_START_DATE) &&
+        new Date(pr.created_at) <= new Date(_END_DATE)
     );
 
     // track the total number of pull requests for the range
     _RESULTS.totalPullRequests = rangedPullRequests.length;
 
-    contributors.forEach((contributor) => {
+    contributors.forEach(contributor => {
       const alias = getAliasForUser(contributor);
 
       if (!_RESULTS.users[alias]) {
@@ -620,54 +687,75 @@ function _processProjects() {
       }
 
       try {
-        const userPullRequests = pullRequests.filter(pr =>
-          pr.user.login === contributor &&
-          new Date(pr.created_at) >= new Date(_START_DATE) &&
-          new Date(pr.created_at) <= new Date(_END_DATE) &&
-          !pr.draft // Exclude draft pull requests
+        const userPullRequests = pullRequests.filter(
+          pr =>
+            pr.user.login === contributor &&
+            new Date(pr.created_at) >= new Date(_START_DATE) &&
+            new Date(pr.created_at) <= new Date(_END_DATE) &&
+            !pr.draft // Exclude draft pull requests
         );
 
         // count the pull requests
         _RESULTS.users[alias].pullRequests += userPullRequests.length;
 
         // tally up lines of code change
-        userPullRequests.forEach((pr) => {
+        userPullRequests.forEach(pr => {
           processingPullRequestDetails.push(
-            new Promise((prdResolve) => {
-              getFromGitHubAPI(`${pr.pull_request.url.replace('https://api.github.com', '')}`).then((prdResponse) => {
-                _RESULTS.users[alias].loc += prdResponse?.data.additions ? +prdResponse?.data.additions : 0;
-                _RESULTS.users[alias].loc += prdResponse?.data.deletions ? +prdResponse?.data.deletions : 0;
-                _RESULTS.users[alias].filesTouched += prdResponse?.data.changed_files ? +prdResponse?.data.changed_files : 0;
+            new Promise(prdResolve => {
+              getFromGitHubAPI(
+                `${pr.pull_request.url.replace('https://api.github.com', '')}`
+              )
+                .then(prdResponse => {
+                  _RESULTS.users[alias].loc += prdResponse?.data.additions
+                    ? +prdResponse?.data.additions
+                    : 0;
+                  _RESULTS.users[alias].loc += prdResponse?.data.deletions
+                    ? +prdResponse?.data.deletions
+                    : 0;
+                  _RESULTS.users[alias].filesTouched += prdResponse?.data
+                    .changed_files
+                    ? +prdResponse?.data.changed_files
+                    : 0;
 
-                // get reviews for the pr and then resolve
-                getFromGitHubAPI(`${pr.pull_request.url.replace('https://api.github.com', '')}/reviews`).then((prReviewResponse) => {
-                  if (Array.isArray(prReviewResponse?.data)) {
-                    prReviewResponse?.data?.forEach((review) => {
-                      const reviewerAlias = getAliasForUser(review.user.login);
+                  // get reviews for the pr and then resolve
+                  getFromGitHubAPI(
+                    `${pr.pull_request.url.replace('https://api.github.com', '')}/reviews`
+                  )
+                    .then(prReviewResponse => {
+                      if (Array.isArray(prReviewResponse?.data)) {
+                        prReviewResponse?.data?.forEach(review => {
+                          const reviewerAlias = getAliasForUser(
+                            review.user.login
+                          );
 
-                      if (!_RESULTS.users[reviewerAlias]) {
-                        _RESULTS.users[reviewerAlias] = {};
+                          if (!_RESULTS.users[reviewerAlias]) {
+                            _RESULTS.users[reviewerAlias] = {};
+                          }
+
+                          if (!_RESULTS.users[reviewerAlias].reviews) {
+                            _RESULTS.users[reviewerAlias].reviews = 0;
+                          }
+
+                          // count the review
+                          _RESULTS.users[reviewerAlias].reviews++;
+                        });
                       }
-
-                      if (!_RESULTS.users[reviewerAlias].reviews) {
-                        _RESULTS.users[reviewerAlias].reviews = 0;
-                      }
-
-                      // count the review
-                      _RESULTS.users[reviewerAlias].reviews++;
+                    })
+                    .finally(() => {
+                      prdResolve();
                     });
-                  }
-                }).finally(() => {
+                })
+                .catch(error => {
                   prdResolve();
                 });
-              }).catch((error) => {
-                prdResolve();
-              });
             })
           );
         });
       } catch (error) {
-        console.error(`Error processing pull requests for user ${contributor}:`, error.message);
+        console.error(
+          `Error processing pull requests for user ${contributor}:`,
+          error.message
+        );
       }
     });
 
@@ -677,49 +765,54 @@ function _processProjects() {
 
 function processUserCommits(packageName) {
   return new Promise((resolve, reject) => {
-    executeCommand(`git log --since='${_START_DATE}T00:00:00-00:00' --until='${_END_DATE}T23:59:59-00:00' --pretty=format:"%an"`, path.join(_CONFIG.directory, packageName)).then((userCommits) => {
-      const users = [];
-      userCommits = userCommits.split('\n');
-      userCommits = userCommits.reduce((acc, author) => {
-        // Push all of the original authors to a list so we can process them uniquely
-        if (author && users.indexOf(author) === -1) {
-          users.push(author);
-        }
+    executeCommand(
+      `git log --since='${_START_DATE}T00:00:00-00:00' --until='${_END_DATE}T23:59:59-00:00' --pretty=format:"%an"`,
+      path.join(_CONFIG.directory, packageName)
+    )
+      .then(userCommits => {
+        const users = [];
+        userCommits = userCommits.split('\n');
+        userCommits = userCommits.reduce((acc, author) => {
+          // Push all of the original authors to a list so we can process them uniquely
+          if (author && users.indexOf(author) === -1) {
+            users.push(author);
+          }
 
-        // Convert the author into an alias author
-        author = getAliasForUser(author);
-        if (!acc[author]) {
-          acc[author] = 0;
-        }
-        acc[author]++;
+          // Convert the author into an alias author
+          author = getAliasForUser(author);
+          if (!acc[author]) {
+            acc[author] = 0;
+          }
+          acc[author]++;
 
-        // Ensure that users array is configured
-        if (!_RESULTS.users) {
-          _RESULTS.users = {};
-        }
+          // Ensure that users array is configured
+          if (!_RESULTS.users) {
+            _RESULTS.users = {};
+          }
 
-        // Make sure the user has a specific entry
-        if (!_RESULTS.users[author]) {
-          _RESULTS.users[author] = {};
-        }
+          // Make sure the user has a specific entry
+          if (!_RESULTS.users[author]) {
+            _RESULTS.users[author] = {};
+          }
 
-        // Make sure the commits are defined for the user
-        if (!_RESULTS.users[author].commits) {
-          _RESULTS.users[author].commits = 0;
-        }
+          // Make sure the commits are defined for the user
+          if (!_RESULTS.users[author].commits) {
+            _RESULTS.users[author].commits = 0;
+          }
 
-        return acc;
-      }, {});
+          return acc;
+        }, {});
 
-      Object.keys(userCommits).forEach((author) => {
-        _RESULTS.users[author].commits += userCommits[author];
+        Object.keys(userCommits).forEach(author => {
+          _RESULTS.users[author].commits += userCommits[author];
+        });
+
+        resolve();
+      })
+      .catch(error => {
+        console.error(`Error counting commits for ${packageName}:`, error);
+        reject();
       });
-
-      resolve();
-    }).catch((error) => {
-      console.error(`Error counting commits for ${packageName}:`, error);
-      reject();
-    });
   });
 }
 
@@ -732,18 +825,22 @@ _configureApp();
 _processProjects().finally(() => {
   // calculate the commits per pull request for the period
   if (!!_RESULTS.totalCommits && !!_RESULTS.totalPullRequests) {
-    _RESULTS.commitsPerPullRequest = _RESULTS.totalCommits / _RESULTS.totalPullRequests;
+    _RESULTS.commitsPerPullRequest =
+      _RESULTS.totalCommits / _RESULTS.totalPullRequests;
   } else {
     _RESULTS.commitsPerPullRequest = 0;
   }
 
-  _RESULTS.predictedPullRequests = (_CONFIG.commitsPerPullRequest && !isNaN(_CONFIG.commitsPerPullRequest)) ? _RESULTS.totalCommits / _CONFIG.commitsPerPullRequest : _RESULTS.totalCommits / _RESULTS.commitsPerPullRequest;
+  _RESULTS.predictedPullRequests =
+    _CONFIG.commitsPerPullRequest && !isNaN(_CONFIG.commitsPerPullRequest)
+      ? _RESULTS.totalCommits / _CONFIG.commitsPerPullRequest
+      : _RESULTS.totalCommits / _RESULTS.commitsPerPullRequest;
   _RESULTS.activeUsers = 0;
   _RESULTS.teamScore = 0;
 
   // assess the results for all users
   if (!!_RESULTS?.users) {
-    Object.keys(_RESULTS.users).forEach((user) => {
+    Object.keys(_RESULTS.users).forEach(user => {
       // make sure the name is defined
       _RESULTS.users[user].name = user;
 
@@ -764,13 +861,15 @@ _processProjects().finally(() => {
 
       // calculate the user score
       _RESULTS.users[user].score =
-        (_RESULTS.users[user].loc > 1000000 ? _RESULTS.users[user].loc / 800 : _RESULTS.users[user].loc / 100) +
-        (_RESULTS.users[user].filesTouched / 100) +
-        (_RESULTS.users[user].pullRequests * 15) +
-        (_RESULTS.users[user].commits / 100) +
-        ((_RESULTS.users[user].commits / _RESULTS.commitsPerPullRequest) * 10) +
+        (_RESULTS.users[user].loc > 1000000
+          ? _RESULTS.users[user].loc / 800
+          : _RESULTS.users[user].loc / 100) +
+        _RESULTS.users[user].filesTouched / 100 +
+        _RESULTS.users[user].pullRequests * 15 +
+        _RESULTS.users[user].commits / 100 +
+        (_RESULTS.users[user].commits / _RESULTS.commitsPerPullRequest) * 10 +
         // (_RESULTS.users[user].pullRequests ? _RESULTS.users[user].commits / _RESULTS.users[user].pullRequests / 10 : 0) + // account for divide by zero
-        (_RESULTS.users[user].reviews * 10);
+        _RESULTS.users[user].reviews * 10;
 
       // make sure that the score is defined
       if (!_RESULTS.users[user].score) {
@@ -807,8 +906,10 @@ _processProjects().finally(() => {
     // splice out each ignored user
     if (_CONFIG?.ignoreUsers) {
       let index = -1;
-      _CONFIG.ignoreUsers.forEach((user) => {
-        index = usersArray.findIndex(obj => obj['name'] === user?.toLowerCase());
+      _CONFIG.ignoreUsers.forEach(user => {
+        index = usersArray.findIndex(
+          obj => obj['name'] === user?.toLowerCase()
+        );
 
         if (index !== -1) {
           if (usersArray[index]?.score > 0) {

@@ -42,15 +42,36 @@ _All top level properties are required, except for `aliases`, `ignoreUsers`, `co
 These tools are a work in progress. You can expect a more single run e2e tool that will generate webpages and utilize chart.js, etc. in order to visualize your data gathering. For now, use these various steps to aggregate data.
 
 ```sh
+### EDIT config.json ###
+
+# Quickly re-configure your config.json to focus on a year
+npm run config 2024
+
+# Or quickly do the same to focus on a given YYYY-MM.
+npm run config 2024-12
+
+
+### DISCRETE-STEP OPERATION ###
+
 #
 # Gather data based on your config.json file. Continually adjust your config
 # for new date ranges to gather all of the information you need.
+# See
 #
-npm start # repeat for each config.json mod
+npm run gather # repeat for each config.json mod
 
 # now, combine all of your .results_history output
 npm run combine
 
 # once combined, generate useful csv files so you may plot and graph
 npm run chart
+
+### ALTERNATIVE OPERATION ###
+
+#
+# Want to skip the three step process of gather, combine, chart? Just use start
+# to clear your workspace of any combined results and chart data and re-generate
+# it all with this.
+#
+npm start
 ```

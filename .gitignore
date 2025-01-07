@@ -132,6 +132,7 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+runner.sh
 config.json
 cache.json
 **/.results_cache/

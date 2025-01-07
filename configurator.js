@@ -4,7 +4,7 @@ const path = require('path');
 const configPath = path.join(__dirname, 'config.json');
 
 function isLeapYear(year) {
-  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
 function updateConfig(dateString) {

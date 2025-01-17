@@ -181,12 +181,26 @@ async function getFromGitHubAPI(req, options) {
     }
   }
 
-  if (!_CONFIG?.skipCache && _CACHE[key]) {
-    console.warn('~~~ Using cached data ~~~');
+  if (_CONFIG?.skipCache && _CACHE[key]) {
+    if (options) {
+      console.log(
+        `Re-using cached data from GitHub API: ${_cFgYellow}${req}${_cReset} with options: ${JSON.stringify(options)}`
+      );
+    } else {
+      console.log(
+        `Re-using cached data from GitHub API: ${_cFgYellow}${req}${_cReset}`
+      );
+    }
+
     return _CACHE[key];
   }
 
   try {
+    // Generate the unique filename for results caching
+    const timestamp = Date.now();
+    const uuid = uuidv4();
+    const filename = `cache_${timestamp}_${uuid}.json`;
+
     if (options) {
       console.log(
         `Fetching data from GitHub API: ${_cFgBlue}${req}${_cReset} with options: ${JSON.stringify(options)}`
@@ -196,6 +210,9 @@ async function getFromGitHubAPI(req, options) {
         `Fetching data from GitHub API: ${_cFgBlue}${req}${_cReset}`
       );
     }
+
+    console.log(`  ${_cFgGray}Cached at: ./results_cache/${filename}${_cReset}\n`);
+
     const response = req.startsWith('/search/')
       ? await _GITHUB_SEARCH_API.get(req, options)
       : await _GITHUB_API.get(req, options);
@@ -218,10 +235,9 @@ async function getFromGitHubAPI(req, options) {
     }
 
     // Create the filename with the current Unix timestamp
-    const timestamp = Date.now();
     const cacheFilePath = path.join(
       cacheDir,
-      `cache_${timestamp}_${uuidv4()}.json`
+      filename
     );
 
     // Write the JSON string to cache_xxx_yyy.json

@@ -160,23 +160,32 @@ async function getFromGitHubAPI(req, options) {
   }
 
   if (!_CACHE) {
+    console.log(
+      `\n${_cFgYellow}Populating results cache. This might take a while...${_cReset}\n`
+    );
     _CACHE = {};
 
     try {
       const files = fs.readdirSync(cacheDir);
       const jsonFiles = files.filter(file => path.extname(file) === '.json');
-      const jsonData = jsonFiles.map(file => {
-        const filePath = path.join(cacheDir, file);
-        const fileContent = fs.readFileSync(filePath, 'utf8');
-        return JSON.parse(fileContent);
-      });
 
-      Object.values(jsonData).forEach(data => {
-        Object.keys(data).forEach(key => {
-          _CACHE[key] = data[key];
+      if (jsonFiles.length > 0) {
+        jsonFiles.forEach(file => {
+          try {
+            const filePath = path.join(cacheDir, file);
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+
+            const data = JSON.parse(fileContent);
+            Object.keys(data).forEach(dataKey => {
+              _CACHE[dataKey] = data[dataKey];
+            });
+          } catch (cacheError) {
+            `  ${_cFgGray}Error parsing a cache file. Consider removal of ${path.join(cacheDir, file)}${_cReset}`;
+          }
         });
-      });
+      }
     } catch (error) {
+      console.error('An error occurred while processing cache files:', error);
       _CACHE = {};
     }
   }
@@ -206,12 +215,12 @@ async function getFromGitHubAPI(req, options) {
         `Fetching data from GitHub API: ${_cFgBlue}${req}${_cReset} with options: ${JSON.stringify(options)}`
       );
     } else {
-      console.log(
-        `Fetching data from GitHub API: ${_cFgBlue}${req}${_cReset}`
-      );
+      console.log(`Fetching data from GitHub API: ${_cFgBlue}${req}${_cReset}`);
     }
 
-    console.log(`  ${_cFgGray}Cached at: ./results_cache/${filename}${_cReset}\n`);
+    console.log(
+      `  ${_cFgGray}Cached at: ./results_cache/${filename}${_cReset}\n`
+    );
 
     const response = req.startsWith('/search/')
       ? await _GITHUB_SEARCH_API.get(req, options)
@@ -235,10 +244,7 @@ async function getFromGitHubAPI(req, options) {
     }
 
     // Create the filename with the current Unix timestamp
-    const cacheFilePath = path.join(
-      cacheDir,
-      filename
-    );
+    const cacheFilePath = path.join(cacheDir, filename);
 
     // Write the JSON string to cache_xxx_yyy.json
     fs.writeFile(cacheFilePath, cacheData, () => {});

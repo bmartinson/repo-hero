@@ -159,34 +159,42 @@ async function getFromGitHubAPI(req, options) {
     key += `--qps--${JSON.stringify(options)}`;
   }
 
+  if (_CONFIG?.skipCache) {
+    console.log(`\n${_cFgYellow}Cache reading disabled. ${_cReset}\n`);
+  }
+
   if (!_CACHE) {
-    console.log(
-      `\n${_cFgYellow}Populating results cache. This might take a while...${_cReset}\n`
-    );
     _CACHE = {};
 
-    try {
-      const files = fs.readdirSync(cacheDir);
-      const jsonFiles = files.filter(file => path.extname(file) === '.json');
+    // If the skip cache flag is enabled, don't bother reading in cache files
+    if (!_CONFIG?.skipCache) {
+      console.log(
+        `\n${_cFgYellow}Populating results cache. This might take a while...${_cReset}\n`
+      );
 
-      if (jsonFiles.length > 0) {
-        jsonFiles.forEach(file => {
-          try {
-            const filePath = path.join(cacheDir, file);
-            const fileContent = fs.readFileSync(filePath, 'utf8');
+      try {
+        const files = fs.readdirSync(cacheDir);
+        const jsonFiles = files.filter(file => path.extname(file) === '.json');
 
-            const data = JSON.parse(fileContent);
-            Object.keys(data).forEach(dataKey => {
-              _CACHE[dataKey] = data[dataKey];
-            });
-          } catch (cacheError) {
-            `  ${_cFgGray}Error parsing a cache file. Consider removal of ${path.join(cacheDir, file)}${_cReset}`;
-          }
-        });
+        if (jsonFiles.length > 0) {
+          jsonFiles.forEach(file => {
+            try {
+              const filePath = path.join(cacheDir, file);
+              const fileContent = fs.readFileSync(filePath, 'utf8');
+
+              const data = JSON.parse(fileContent);
+              Object.keys(data).forEach(dataKey => {
+                _CACHE[dataKey] = data[dataKey];
+              });
+            } catch (cacheError) {
+              `  ${_cFgGray}Error parsing a cache file. Consider removal of ${path.join(cacheDir, file)}${_cReset}`;
+            }
+          });
+        }
+      } catch (error) {
+        console.error('An error occurred while processing cache files:', error);
+        _CACHE = {};
       }
-    } catch (error) {
-      console.error('An error occurred while processing cache files:', error);
-      _CACHE = {};
     }
   }
 

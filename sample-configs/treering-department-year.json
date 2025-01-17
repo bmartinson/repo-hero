@@ -1,11 +1,9 @@
 {
-  "tokens": {
-    "github": "xxx"
-  },
   "directory": "/Users/bmartinson/Development",
-  "startDate": "2023-09-01",
-  "endDate": "2024-09-01",
-  "commitsPerPullRequest": 12.5,
+  "startDate": "2024-01-01",
+  "endDate": "2024-12-31",
+  "resultsName": "2024",
+  "skipCache": true,
   "projects": [
     "@TreeRing/dev-ops",
     "@TreeRing/config",
@@ -37,7 +35,6 @@
       "DevOps",
       "treering",
       "production",
-      "AG",
       "treering production",
       "(No Author)",
       "dependabot[bot]",
@@ -48,7 +45,7 @@
       "treering-devops",
       ""
     ],
-    "Aaron Greco": ["grecstar"],
+    "Aaron Greco": ["grecstar", "aaron", "AG"],
     "Brian Martinson": ["bmartinson", "bmartinson13", "bmartinson-tr"],
     "William Chidyausiku": [
       "William",
@@ -76,7 +73,20 @@
     "Elle Louie": ["ElleLouie"],
     "Philip Basnage": ["pbasnage", "pbasnagetr", "philiptreering"],
     "Monika Israt": ["imonika", "monika israt"],
-    "Kyle Burt": ["kyleburt11495"]
+    "Kyle Burt": ["kyleburt11495"],
+    "Omer Naman": ["omertreering"],
+    "Michael Kim": ["hmichaelkim"]
   },
-  "ignoreUsers": ["DevOps Deployment"]
+  "ignoreUsers": [
+    "DevOps Deployment",
+    "Aaron Greco",
+    "Irene Chan",
+    "George Ku",
+    "Monika Israt",
+    "Michael Kim"
+  ],
+  "tokens": {
+    "github": "*****"
+  },
+  "commitsPerPullRequest": 12.5
 }

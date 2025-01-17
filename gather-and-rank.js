@@ -756,8 +756,9 @@ function _processProjects() {
                     .changed_files
                     ? +prdResponse?.data.changed_files
                     : 0;
-                  if (!_RESULTS.users[alias].merged) {
-                    _RESULTS.users[alias].merged += prdResponse?.data.commits
+                  if (!prdResponse?.data.merged) {
+                    _RESULTS.users[alias].pendingCommits += prdResponse?.data
+                      .commits
                       ? +prdResponse?.data.commits
                       : 0;
                   }

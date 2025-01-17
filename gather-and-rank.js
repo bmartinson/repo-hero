@@ -159,7 +159,7 @@ async function getFromGitHubAPI(req, options) {
     key += `--qps--${JSON.stringify(options)}`;
   }
 
-  if (_CONFIG?.skipCache) {
+  if (!_CACHE && _CONFIG?.skipCache) {
     console.log(`\n${_cFgYellow}Cache reading disabled. ${_cReset}\n`);
   }
 
@@ -710,6 +710,10 @@ function _processProjects() {
         _RESULTS.users[alias].pullRequests = 0;
       }
 
+      if (!_RESULTS.users[alias].pendingCommits) {
+        _RESULTS.users[alias].pendingCommits = 0;
+      }
+
       if (!_RESULTS.users[alias].loc) {
         _RESULTS.users[alias].loc = 0;
       }
@@ -752,6 +756,11 @@ function _processProjects() {
                     .changed_files
                     ? +prdResponse?.data.changed_files
                     : 0;
+                  if (!_RESULTS.users[alias].merged) {
+                    _RESULTS.users[alias].merged += prdResponse?.data.commits
+                      ? +prdResponse?.data.commits
+                      : 0;
+                  }
 
                   // get reviews for the pr and then resolve
                   getFromGitHubAPI(

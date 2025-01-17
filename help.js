@@ -28,10 +28,10 @@ _cBgGray = '\x1b[100m';
 console.clear();
 
 console.log(`Commands:\n`);
-console.log(`  ${_cFgBlue}start${_cReset}\t(execute all)\n`);
+console.log(`  ${_cFgBlue}start${_cReset}\t\t(execute all)\n`);
 console.log(`  ${_cFgGreen}gather${_cReset}\t(gather data and generate .results_history/*.json)`);
 console.log(`  ${_cFgGreen}combine${_cReset}\t(re-generate combined results)`);
-console.log(`  ${_cFgGreen}chart${_cReset}\t(re-generate csv files)\n`);
-console.log(`  ${_cFgYellow}help${_cReset}\t(display this menu)`);
+console.log(`  ${_cFgGreen}chart${_cReset}\t\t(re-generate csv files)\n`);
+console.log(`  ${_cFgYellow}help${_cReset}\t\t(display this menu)`);
 
 console.log('');

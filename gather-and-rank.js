@@ -189,11 +189,11 @@ async function getFromGitHubAPI(req, options) {
   try {
     if (options) {
       console.log(
-        `Fetching data from GitHub API: ${_cFgGreen}${req}${_cReset} with options: ${JSON.stringify(options)}`
+        `Fetching data from GitHub API: ${_cFgBlue}${req}${_cReset} with options: ${JSON.stringify(options)}`
       );
     } else {
       console.log(
-        `Fetching data from GitHub API: ${_cFgGreen}${req}${_cReset}`
+        `Fetching data from GitHub API: ${_cFgBlue}${req}${_cReset}`
       );
     }
     const response = req.startsWith('/search/')

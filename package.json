@@ -10,7 +10,8 @@
     "start": "rm -rf .results_history/*.csv && rm -rf .results_history/combined_results.json && node gather-and-rank.js && node results-combiner.js && node results-charter.js && node results-team-charter.js",
     "gather": "node gather-and-rank.js",
     "combine": "rm -rf .results_history/combined_results.json && node results-combiner.js",
-    "chart": "rm -rf .results_history/*.csv && node results-charter.js; node results-team-charter.js"
+    "chart": "rm -rf .results_history/*.csv && node results-charter.js; node results-team-charter.js",
+    "help": "clear && echo \"Commands:\n\n\tstart (execute all)\n\tgather (get data and re-generate time-range)\n\tcombine (re-generate combined_results.json)\n\tchart (re-generate csv files)\n\thelp (display this menu)\n\""
   },
   "repository": {
     "type": "git",

@@ -28,6 +28,7 @@ _cBgGray = '\x1b[100m';
 console.clear();
 
 console.log(`Commands:\n`);
+console.log(`  ${_cFgBlue}config${_cReset}\t\t(re-configure dates in config.json)\n`);
 console.log(`  ${_cFgBlue}start${_cReset}\t\t(execute all)\n`);
 console.log(`  ${_cFgGreen}gather${_cReset}\t(gather data and generate .results_history/*.json)`);
 console.log(`  ${_cFgGreen}combine${_cReset}\t(re-generate combined results)`);

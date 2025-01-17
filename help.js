@@ -1,8 +1,3 @@
-// if (pr.user.login === 'philiptreering') {
-//   // do some special philip logging for right now
-//   console.log('~~ user name', pr.user.login);
-// }
-
 // ----- nodejs helper variables -----
 _cReset = '\x1b[0m';
 _cBright = '\x1b[1m';
@@ -33,7 +28,7 @@ _cBgGray = '\x1b[100m';
 console.clear();
 
 console.log(`Commands:\n`);
-console.log(`  ${_cFgGreen}start${_cReset}\t(execute all)\n`);
+console.log(`  ${_cFgBlue}start${_cReset}\t(execute all)\n`);
 console.log(`  ${_cFgGreen}gather${_cReset} (gather data and generate .results_history/*.json)`);
 console.log(`  ${_cFgGreen}combine${_cReset} (re-generate combined results)`);
 console.log(`  ${_cFgGreen}chart${_cReset} (re-generate csv files)\n`);

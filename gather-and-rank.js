@@ -706,11 +706,6 @@ function _processProjects() {
 
         // tally up lines of code change
         userPullRequests.forEach(pr => {
-          if (pr.user.login === 'bmartinson') {
-            // do some special philip logging for right now
-            console.log('~~ user name', pr.user.login);
-          }
-
           processingPullRequestDetails.push(
             new Promise(prdResolve => {
               getFromGitHubAPI(

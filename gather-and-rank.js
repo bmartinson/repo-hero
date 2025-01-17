@@ -198,7 +198,7 @@ async function getFromGitHubAPI(req, options) {
     }
   }
 
-  if (_CONFIG?.skipCache && _CACHE[key]) {
+  if (!_CONFIG?.skipCache && _CACHE[key]) {
     if (options) {
       console.log(
         `Re-using cached data from GitHub API: ${_cFgYellow}${req}${_cReset} with options: ${JSON.stringify(options)}`

@@ -187,9 +187,15 @@ async function getFromGitHubAPI(req, options) {
   }
 
   try {
-    console.log(
-      `Fetching data from GitHub API: ${req} with options: ${JSON.stringify(options)}`
-    );
+    if (options) {
+      console.log(
+        `Fetching data from GitHub API: ${_cFgGreen}${req}${_cReset} with options: ${JSON.stringify(options)}`
+      );
+    } else {
+      console.log(
+        `Fetching data from GitHub API: ${_cFgGreen}${req}${_cReset}`
+      );
+    }
     const response = req.startsWith('/search/')
       ? await _GITHUB_SEARCH_API.get(req, options)
       : await _GITHUB_API.get(req, options);
@@ -476,7 +482,7 @@ function _configureApp() {
           `Used ${data.rate.used} out of ${data.rate.limit} GitHub core requests. Reset time: ${new Date(data.rate.reset * 1000).toLocaleString()}`
         );
         console.log(
-          `Used ${data.resources.search.used} out of ${data.resources.search.limit} GitHub search requests. Reset time: ${new Date(data.resources.search.reset * 1000).toLocaleString()}`
+          `Used ${data.resources.search.used} out of ${data.resources.search.limit} GitHub search requests. Reset time: ${new Date(data.resources.search.reset * 1000).toLocaleString()}\n`
         );
       })
       .catch(error => console.error('Error!', error));
@@ -700,6 +706,11 @@ function _processProjects() {
 
         // tally up lines of code change
         userPullRequests.forEach(pr => {
+          if (pr.user.login === 'philiptreering') {
+            // do some special philip logging for right now
+            console.log('~~ user name', pr.user.login);
+          }
+
           processingPullRequestDetails.push(
             new Promise(prdResolve => {
               getFromGitHubAPI(

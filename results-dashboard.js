@@ -218,12 +218,17 @@ body {
   font-size: 13px;
   line-height: 1.6;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 #app {
   max-width: 1440px;
   margin: 0 auto;
   padding: 20px 24px 60px;
+  width: 100%;
+  box-sizing: border-box;
+  flex: 1;
 }
 
 /* ─── Header ─────────────────────────────────────────────────────────────── */

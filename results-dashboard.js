@@ -453,15 +453,16 @@ header {
   font-size: 18px;
   font-weight: 700;
   color: var(--fg-bright);
+  white-space: nowrap;
 }
 
 .fire-badge {
-  display: inline-block;
-  font-size: 14px;
-  margin-left: 2px;
+  display: inline;
+  font-size: 0.75em;
+  margin-left: 1px;
   filter: drop-shadow(0 0 4px rgba(255, 100, 0, 0.6));
   cursor: help;
-  vertical-align: middle;
+  vertical-align: baseline;
 }
 
 .user-stat .stat-label {
@@ -528,7 +529,7 @@ header {
 
 .profile-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
   margin-bottom: 28px;
 }
@@ -545,6 +546,9 @@ header {
   font-size: 22px;
   font-weight: 700;
   color: var(--fg-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .profile-stat .pstat-label {

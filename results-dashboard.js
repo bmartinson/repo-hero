@@ -766,6 +766,7 @@ body::after {
       <button class="scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
       <button class="scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
       <button class="scope-btn active" data-scope="30" onclick="setScope(30)">1M</button>
+      <button class="scope-btn" data-scope="60" onclick="setScope(60)">2M</button>
       <button class="scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
       <button class="scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
       <button class="scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
@@ -787,6 +788,7 @@ body::after {
       <button class="scope-btn users-scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
       <button class="scope-btn users-scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
       <button class="scope-btn users-scope-btn active" data-scope="30" onclick="setScope(30)">1M</button>
+      <button class="scope-btn users-scope-btn" data-scope="60" onclick="setScope(60)">2M</button>
       <button class="scope-btn users-scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
       <button class="scope-btn users-scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
       <button class="scope-btn users-scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>

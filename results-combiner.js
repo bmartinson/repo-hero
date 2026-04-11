@@ -25,6 +25,11 @@ fs.readdir(resultsDir, (err, files) => {
       return;
     }
 
+    // Only process JSON files
+    if (path.extname(file).toLowerCase() !== '.json') {
+      return;
+    }
+
     const filePath = path.join(resultsDir, file);
 
     if (filePath.toLowerCase().indexOf('.ds_store') >= 0) {

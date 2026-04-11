@@ -1,9 +1,8 @@
 {
   "directory": "/Users/bmartinson/Development",
-  "startDate": "2024-01-01",
-  "endDate": "2024-12-31",
-  "resultsName": "2024",
-  "skipCache": true,
+  "startDate": "2015-01-01",
+  "endDate": "2026-04-30",
+  "skipCache": false,
   "projects": [
     "@TreeRing/dev-ops",
     "@TreeRing/config",
@@ -12,14 +11,25 @@
     "@TreeRing/TRYearbook5",
     "@TreeRing/TRCruise",
     "@TreeRing/ng-treering",
+    "@TreeRing/cambium",
     "@TreeRing/ngtr-sales-portal",
     "@TreeRing/console",
     "@TreeRing/marketing",
     "@TreeRing/www",
+    "@TreeRing/pageimage",
     "@TreeRing/TRYearbook-flash",
     "@TreeRing/TRYearbookIOS",
     "@TreeRing/TRCoreIOS",
     "@TreeRing/TRBabyIOS",
+    "@TreeRing/terraform",
+    "@TreeRing/knowledge-base",
+    "@TreeRing/ai-generative-content",
+    "@TreeRing/ai-book-builder",
+    "@TreeRing/business-intelligence",
+    "@TreeRing/itinerary-scraper",
+    "@TreeRing/flutter_travel",
+    "@TreeRing/flutter_treering",
+    "@TreeRing/TRTemplateEditor",
     "@bmartinson/ngx-x-browser-svg-mask",
     "@bmartinson/ngx-advanced-img",
     "@bmartinson/ngx-draggable-dom",
@@ -53,13 +63,19 @@
       "William Chidyasiku",
       "william chidyausiku"
     ],
-    "Daniel Steffe": ["Skippy", "idiodabble"],
+    "Daniel Steffee": [
+      "Skippy",
+      "idiodabble",
+      "daniel steffee",
+      "daniel steffe"
+    ],
     "George Ku": ["George", "gku036"],
     "Benji Wolfenberger": ["benjiwolf", "benji wolfenberger", "bwolfenberger"],
     "Irene Chan": ["irenechan-treering"],
     "Win Min": ["win-treering", "win min"],
     "John Moskwa": ["jmoskwa6"],
     "Arda Ungun": ["ardatr", "arda ungun"],
+    "Jason Rostro": ["jason rostro", "jason-treering", "jason-treering"],
     "Nick Pasto": ["Nick", "pastotreering"],
     "Kevin Zerber": ["kzerber"],
     "Max Whitaker": ["MaxisG"],
@@ -74,8 +90,18 @@
     "Philip Basnage": ["pbasnage", "pbasnagetr", "philiptreering"],
     "Monika Israt": ["imonika", "monika israt"],
     "Kyle Burt": ["kyleburt11495"],
+    "Jakub Barzdo": ["jakubbarzdo", "jakub barzdo"],
     "Omer Naman": ["omertreering"],
-    "Michael Kim": ["hmichaelkim"]
+    "Laurel McNees": ["laurel85"],
+    "Michael Kim": ["hmichaelkim"],
+    "Nathan Orttung": ["norttung"],
+    "Nick Wiesjahn": ["nick wiesjahn", "njw-cstg", "wiesjahn"],
+    "AI Bots": [
+      "copilot",
+      "claude",
+      "copilot-pull-request-reviewer[bot]",
+      "copilot-swe-agent[bot]"
+    ]
   },
   "ignoreUsers": [
     "DevOps Deployment",
@@ -83,10 +109,12 @@
     "Irene Chan",
     "George Ku",
     "Monika Israt",
-    "Michael Kim"
+    "Michael Kim",
+    "Laurel McNees",
+    "AI Bots"
   ],
   "tokens": {
-    "github": "*****"
+    "github": "XXXXXXXXXXXXXXX"
   },
   "commitsPerPullRequest": 12.5
 }

@@ -571,7 +571,7 @@ header {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
-  max-width: 900px;
+  max-width: 960px;
   width: 100%;
   padding: 32px;
   position: relative;
@@ -664,6 +664,92 @@ header {
 .profile-chart-box canvas {
   width: 100% !important;
   height: 180px !important;
+}
+
+/* ─── Contribution Breakdown Table ───────────────────────────────────────── */
+
+.profile-breakdown {
+  margin-top: 28px;
+}
+
+.breakdown-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: color 0.15s, border-color 0.15s;
+  width: 100%;
+  text-align: left;
+}
+
+.breakdown-toggle:hover { color: var(--fg-bright); border-color: var(--fg-dim); }
+
+.breakdown-toggle .caret {
+  display: inline-block;
+  transition: transform 0.2s;
+  margin-right: 8px;
+}
+
+.breakdown-toggle.open .caret { transform: rotate(90deg); }
+
+.breakdown-table-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.breakdown-table-wrap.open {
+  max-height: 2000px;
+}
+
+.breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.breakdown-table th {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 10px;
+  color: var(--fg-dim);
+  font-weight: 500;
+  padding: 8px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.breakdown-table th:first-child { text-align: left; }
+
+.breakdown-table td {
+  padding: 6px 10px;
+  text-align: right;
+  color: var(--fg);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  white-space: nowrap;
+}
+
+.breakdown-table td:first-child {
+  text-align: left;
+  color: var(--fg-muted);
+}
+
+.breakdown-table tr:hover td {
+  background: var(--bg-card-hover);
+}
+
+.breakdown-table .total-row td {
+  border-top: 1px solid var(--fg-dim);
+  color: var(--fg-bright);
+  font-weight: 700;
 }
 
 /* ─── Scan-line overlay (subtle CRT effect) ──────────────────────────────── */
@@ -1283,6 +1369,40 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
         + '</div>';
     });
     html += '</div>';
+
+    // ─── Per-period breakdown table ──────────────────────────────────────
+    html += '<div class="profile-breakdown">';
+    html += '<button class="breakdown-toggle" onclick="this.classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')">'
+      + '<span class="caret">▶</span> CONTRIBUTION BREAKDOWN (' + periods.length + ' periods)</button>';
+    html += '<div class="breakdown-table-wrap">';
+    html += '<table class="breakdown-table">';
+    html += '<thead><tr><th>Period</th>';
+    METRICS.forEach(m => { html += '<th>' + m.label + '</th>'; });
+    html += '</tr></thead><tbody>';
+
+    periods.forEach(pid => {
+      const p = ALL_PERIODS.find(x => x.id === pid);
+      const d = ud && ud.data[pid];
+      const periodLabel = formatPeriodLabel(pid);
+      const dateRange = p ? p.startDate + ' → ' + p.endDate : pid;
+      html += '<tr title="' + dateRange + '"><td>' + periodLabel + '</td>';
+      METRICS.forEach(m => {
+        let val = 0;
+        if (d) {
+          if (m.key === 'effectivePRs') val = d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
+          else val = d[m.key] || 0;
+        }
+        html += '<td>' + m.format(val) + '</td>';
+      });
+      html += '</tr>';
+    });
+
+    // Totals row
+    html += '<tr class="total-row"><td>TOTAL</td>';
+    METRICS.forEach(m => { html += '<td>' + m.format(totals[m.key]) + '</td>'; });
+    html += '</tr>';
+
+    html += '</tbody></table></div></div>';
 
     panel.innerHTML = html;
     overlay.classList.add('visible');

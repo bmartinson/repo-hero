@@ -172,6 +172,11 @@ const logoSvg = fs.existsSync(logoFile)
   ? fs.readFileSync(logoFile, 'utf8')
   : '';
 
+const bjmFaviconFile = path.join(__dirname, 'assets', 'bjm-favicon-white.png');
+const bjmFaviconB64 = fs.existsSync(bjmFaviconFile)
+  ? fs.readFileSync(bjmFaviconFile).toString('base64')
+  : '';
+
 const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -218,12 +223,17 @@ body {
   font-size: 13px;
   line-height: 1.6;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 #app {
   max-width: 1440px;
   margin: 0 auto;
   padding: 20px 24px 60px;
+  width: 100%;
+  box-sizing: border-box;
+  flex: 1;
 }
 
 /* ─── Header ─────────────────────────────────────────────────────────────── */
@@ -969,6 +979,47 @@ body::after {
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
+/* ─── Footer ─────────────────────────────────────────────────────────────── */
+
+.site-footer {
+  text-align: center;
+  padding: 32px 20px 24px;
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--fg-dim);
+  letter-spacing: 0.5px;
+}
+
+.site-footer a {
+  color: var(--fg-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.site-footer a:hover { color: var(--fg-bright); }
+
+.footer-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-sep {
+  color: var(--border);
+  margin: 0 6px;
+}
+
+.footer-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  opacity: 0.6;
+}
+
+.site-footer a:hover .footer-icon { opacity: 1; }
+
 </style>
 </head>
 <body>
@@ -998,10 +1049,10 @@ body::after {
     <!-- Filter bar -->
     <div class="filter-bar">
       <span class="label">Scope:</span>
-      <button class="scope-btn" data-scope="7" onclick="setScope(7)">1W</button>
+      <button class="scope-btn active" data-scope="7" onclick="setScope(7)">1W</button>
       <button class="scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
       <button class="scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
-      <button class="scope-btn active" data-scope="30" onclick="setScope(30)">1M</button>
+      <button class="scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
       <button class="scope-btn" data-scope="60" onclick="setScope(60)">2M</button>
       <button class="scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
       <button class="scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
@@ -1020,10 +1071,10 @@ body::after {
   <div class="tab-panel" id="tab-users">
     <div class="filter-bar">
       <span class="label">Scope:</span>
-      <button class="scope-btn users-scope-btn" data-scope="7" onclick="setScope(7)">1W</button>
+      <button class="scope-btn users-scope-btn active" data-scope="7" onclick="setScope(7)">1W</button>
       <button class="scope-btn users-scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
       <button class="scope-btn users-scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
-      <button class="scope-btn users-scope-btn active" data-scope="30" onclick="setScope(30)">1M</button>
+      <button class="scope-btn users-scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
       <button class="scope-btn users-scope-btn" data-scope="60" onclick="setScope(60)">2M</button>
       <button class="scope-btn users-scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
       <button class="scope-btn users-scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
@@ -1181,6 +1232,21 @@ body::after {
   <div class="profile-panel" id="profile-panel"></div>
 </div>
 
+<!-- Footer -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <a href="https://www.github.com/bmartinson/repo-hero" target="_blank" rel="noopener">
+      <svg class="footer-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      Feedback &amp; Source
+    </a>
+    <span class="footer-sep">|</span>
+    <a href="https://www.brianmartinson.com" target="_blank" rel="noopener">
+      <img class="footer-icon" src="data:image/png;base64,${bjmFaviconB64}" alt="BJM">
+      Developed by Brian Martinson
+    </a>
+  </div>
+</footer>
+
 <script>
 // ─── Data ───────────────────────────────────────────────────────────────────
 window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
@@ -1189,6 +1255,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   'use strict';
 
   const DATA = window.__REPO_HERO_DATA__;
+  const GENERATED_AT = '${new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}';
   const ALL_PERIODS = DATA.periods; // [{id, startDate, endDate}, ...]
   const ALL_PERIOD_IDS = ALL_PERIODS.map(p => p.id);
   const METRICS = [
@@ -1202,7 +1269,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   const CHART_COLORS = ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff'];
 
-  let currentScope = 30; // days (0 = all)
+  let currentScope = 7; // days (0 = all)
   let currentSort = 'score';
   let charts = {};
   let profileCharts = {};
@@ -1891,7 +1958,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     if (ALL_PERIODS.length > 0) {
       const first = ALL_PERIODS[0];
       const last = ALL_PERIODS[ALL_PERIODS.length - 1];
-      rangeEl.textContent = 'DATA RANGE: ' + first.startDate + ' — ' + last.endDate + ' (' + ALL_PERIODS.length + ' periods)';
+      rangeEl.textContent = 'DATA RANGE: ' + first.startDate + ' — ' + last.endDate + ' (' + ALL_PERIODS.length + ' periods)  ·  Last updated ' + GENERATED_AT;
     } else {
       rangeEl.textContent = 'NO DATA AVAILABLE';
     }

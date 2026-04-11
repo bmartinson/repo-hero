@@ -182,6 +182,7 @@ const html = `<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
 <style>
 /* ─── Repo Hero Dashboard — Terminal Theme ───────────────────────────────── */
 
@@ -552,6 +553,63 @@ header {
   color: var(--fg-dim);
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+/* ─── Score Distribution ─────────────────────────────────────────────────── */
+
+.dist-section {
+  margin-top: 36px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.dist-title {
+  font-size: 11px;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 4px;
+}
+
+.dist-subtitle {
+  font-size: 11px;
+  color: var(--fg-dim);
+  margin-bottom: 16px;
+}
+
+.dist-chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 300px;
+}
+
+.dist-chart-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.dist-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+
+.dist-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dist-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
 /* ─── User Profile Overlay ───────────────────────────────────────────────── */
@@ -982,6 +1040,16 @@ body::after {
       <button class="sort-btn" data-sort="filesTouched" onclick="setUserSort('filesTouched')">Files</button>
     </div>
     <div class="users-grid" id="users-grid"></div>
+
+    <!-- Score Distribution -->
+    <div class="dist-section" id="dist-section">
+      <div class="dist-title">SCORE DISTRIBUTION</div>
+      <div class="dist-subtitle" id="dist-subtitle"></div>
+      <div class="dist-chart-wrap">
+        <canvas id="dist-chart"></canvas>
+      </div>
+      <div class="dist-legend" id="dist-legend"></div>
+    </div>
   </div>
 
   <!-- ═══ Methodology Tab ═══ -->
@@ -1138,6 +1206,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   let currentSort = 'score';
   let charts = {};
   let profileCharts = {};
+  let distChart = null;
 
   // ─── Helpers ────────────────────────────────────────────────────────────
 
@@ -1536,6 +1605,133 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
         + '</div>'
       + '</div>';
     }).join('');
+
+    // ─── Score Distribution Chart ────────────────────────────────────────
+    renderDistribution(active);
+  }
+
+  function renderDistribution(activeUsers) {
+    if (distChart) { distChart.destroy(); distChart = null; }
+
+    const scores = activeUsers.map(u => u.totals.score);
+    if (scores.length < 2) return;
+
+    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const variance = scores.reduce((a, v) => a + (v - mean) ** 2, 0) / scores.length;
+    const stdDev = Math.sqrt(variance);
+
+    document.getElementById('dist-subtitle').textContent =
+      'μ = ' + mean.toFixed(1) + '   σ = ' + stdDev.toFixed(1) + '   n = ' + scores.length;
+
+    const sorted = activeUsers
+      .map(u => ({
+        name: u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '),
+        score: u.totals.score,
+        z: stdDev > 0 ? (u.totals.score - mean) / stdDev : 0
+      }))
+      .sort((a, b) => a.score - b.score);
+
+    const bandColors = {
+      'below-2':  { bg: 'rgba(255, 51, 51, 0.5)',  border: '#ff3333', label: '< −2σ' },
+      'below-1':  { bg: 'rgba(255, 136, 68, 0.5)',  border: '#ff8844', label: '−2σ to −1σ' },
+      'within':   { bg: 'rgba(0, 170, 255, 0.5)',   border: '#00aaff', label: '−1σ to +1σ' },
+      'above-1':  { bg: 'rgba(0, 221, 204, 0.5)',   border: '#00ddcc', label: '+1σ to +2σ' },
+      'above-2':  { bg: 'rgba(204, 102, 255, 0.5)', border: '#cc66ff', label: '> +2σ' },
+    };
+
+    function getBand(z) {
+      if (z <= -2) return 'below-2';
+      if (z <= -1) return 'below-1';
+      if (z <= 1)  return 'within';
+      if (z <= 2)  return 'above-1';
+      return 'above-2';
+    }
+
+    const labels = sorted.map(u => u.name);
+    const data = sorted.map(u => u.score);
+    const bgColors = sorted.map(u => bandColors[getBand(u.z)].bg);
+    const borderColors = sorted.map(u => bandColors[getBand(u.z)].border);
+
+    const annotations = {};
+    const lineStyle = { type: 'line', borderDash: [6, 4], borderWidth: 1, label: { display: true, position: 'start', font: { size: 10, family: 'IBM Plex Mono' }, padding: 3 } };
+
+    annotations.mean = {
+      ...lineStyle,
+      yMin: mean, yMax: mean,
+      borderColor: 'rgba(255,255,255,0.5)',
+      label: { ...lineStyle.label, content: 'μ ' + mean.toFixed(0), color: 'rgba(255,255,255,0.7)', backgroundColor: 'rgba(0,0,0,0.6)' }
+    };
+    [-2, -1, 1, 2].forEach(n => {
+      const val = mean + n * stdDev;
+      if (val >= 0) {
+        annotations['sd' + n] = {
+          ...lineStyle,
+          yMin: val, yMax: val,
+          borderColor: 'rgba(255,255,255,0.2)',
+          label: { ...lineStyle.label, content: (n > 0 ? '+' : '') + n + 'σ ' + val.toFixed(0), color: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(0,0,0,0.6)' }
+        };
+      }
+    });
+
+    const canvas = document.getElementById('dist-chart');
+    distChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          backgroundColor: bgColors,
+          borderColor: borderColors,
+          borderWidth: 1,
+          borderRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'x',
+        plugins: {
+          legend: { display: false },
+          annotation: { annotations },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const u = sorted[ctx.dataIndex];
+                return 'Score: ' + u.score.toFixed(0) + ' (' + (u.z >= 0 ? '+' : '') + u.z.toFixed(2) + 'σ)';
+              }
+            },
+            titleFont: { family: 'IBM Plex Mono', size: 12 },
+            bodyFont: { family: 'IBM Plex Mono', size: 11 },
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1,
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#777', font: { family: 'IBM Plex Mono', size: 10 }, maxRotation: 45, minRotation: 25 },
+            grid: { color: 'rgba(255,255,255,0.04)' },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#555', font: { family: 'IBM Plex Mono', size: 10 } },
+            grid: { color: 'rgba(255,255,255,0.06)' },
+            title: { display: true, text: 'Score', color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
+          }
+        }
+      }
+    });
+
+    const legendEl = document.getElementById('dist-legend');
+    const usedBands = new Set(sorted.map(u => getBand(u.z)));
+    legendEl.innerHTML = Object.entries(bandColors)
+      .filter(([k]) => usedBands.has(k))
+      .map(([, v]) =>
+        '<div class="dist-legend-item">'
+          + '<div class="dist-legend-swatch" style="background:' + v.border + '"></div>'
+          + '<span>' + v.label + '</span>'
+        + '</div>'
+      ).join('');
   }
 
   // ─── User Profile ──────────────────────────────────────────────────────

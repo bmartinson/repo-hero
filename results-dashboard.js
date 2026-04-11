@@ -455,6 +455,15 @@ header {
   color: var(--fg-bright);
 }
 
+.fire-badge {
+  display: inline-block;
+  font-size: 14px;
+  margin-left: 2px;
+  filter: drop-shadow(0 0 4px rgba(255, 100, 0, 0.6));
+  cursor: help;
+  vertical-align: middle;
+}
+
 .user-stat .stat-label {
   font-size: 9px;
   color: var(--fg-dim);
@@ -809,6 +818,35 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     return scored.filter(u => u.value > 0).slice(0, limit);
   }
 
+  // Compute positive outliers: users > mean + 1.5*stdDev for each metric
+  function computeOutliers(periods) {
+    const userNames = Object.keys(DATA.users);
+    const allTotals = userNames.map(name => ({ name, totals: getUserTotals(name, periods) }));
+    const active = allTotals.filter(u => u.totals.score > 0);
+    if (active.length < 3) return {};
+
+    const outliers = {};
+    const metricKeys = METRICS.map(m => m.key);
+
+    metricKeys.forEach(key => {
+      const values = active.map(u => u.totals[key]);
+      const mean = values.reduce((s, v) => s + v, 0) / values.length;
+      const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length;
+      const stdDev = Math.sqrt(variance);
+      if (stdDev === 0) return;
+
+      const threshold = mean + 1.5 * stdDev;
+      active.forEach(u => {
+        if (u.totals[key] >= threshold) {
+          if (!outliers[u.name]) outliers[u.name] = {};
+          outliers[u.name][key] = { value: u.totals[key], mean, stdDev, zScore: ((u.totals[key] - mean) / stdDev).toFixed(1) };
+        }
+      });
+    });
+
+    return outliers;
+  }
+
   function getTeamSummary(periods) {
     const filtered = DATA.team.filter(t => periods.includes(t.periodId));
     if (filtered.length === 0) return { teamScore:0, activeUsers:0, totalPullRequests:0, totalCommits:0 };
@@ -998,24 +1036,29 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     // Filter to users with any activity
     const active = usersWithTotals.filter(u => u.totals.score > 0);
 
+    // Compute positive outliers
+    const outliers = computeOutliers(periods);
+
     const grid = document.getElementById('users-grid');
     grid.innerHTML = active.map((u, i) => {
       const t = u.totals;
+      const o = outliers[u.name] || {};
       const displayName = u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
       const rankColors = ['rgba(255,170,0,0.15);color:#ffaa00','rgba(200,200,200,0.1);color:#ccc','rgba(205,127,50,0.12);color:#cd7f32'];
       const rankStyle = i < 3 ? 'background:' + rankColors[i] : 'background:rgba(85,85,85,0.15);color:var(--fg-dim)';
+      const fire = (key) => o[key] ? '<span class="fire-badge" title="+' + o[key].zScore + 'σ above avg">🔥</span>' : '';
       return '<div class="user-card" onclick="openProfile(\\'' + u.name.replace(/'/g, "\\\\'") + '\\')">'
         + '<div class="user-card-header">'
           + '<span class="user-card-name">' + displayName + '</span>'
           + '<span class="user-card-rank" style="' + rankStyle + '">#' + (i + 1) + '</span>'
         + '</div>'
         + '<div class="user-card-stats">'
-          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.score) + '</div><div class="stat-label">Score</div></div>'
-          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.commits) + '</div><div class="stat-label">Commits</div></div>'
-          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.pullRequests) + '</div><div class="stat-label">PRs</div></div>'
-          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.reviews) + '</div><div class="stat-label">Reviews</div></div>'
-          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.loc) + '</div><div class="stat-label">LOC</div></div>'
-          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.filesTouched) + '</div><div class="stat-label">Files</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.score) + fire('score') + '</div><div class="stat-label">Score</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.commits) + fire('commits') + '</div><div class="stat-label">Commits</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.effectivePRs) + fire('effectivePRs') + '</div><div class="stat-label">PRs</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.reviews) + fire('reviews') + '</div><div class="stat-label">Reviews</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.loc) + fire('loc') + '</div><div class="stat-label">LOC</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(t.filesTouched) + fire('filesTouched') + '</div><div class="stat-label">Files</div></div>'
         + '</div>'
       + '</div>';
     }).join('');
@@ -1046,10 +1089,14 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     html += '<div class="profile-name">' + displayName + '</div>';
     html += '<div class="profile-subtitle">Rank #' + rank + ' of ' + allUsers.filter(u => u.score > 0).length + ' active contributors &mdash; ' + rangeLabel + '</div>';
 
+    const outliers = computeOutliers(periods);
+    const userOutliers = outliers[userName] || {};
+
     html += '<div class="profile-stats">';
     METRICS.forEach(m => {
+      const fire = userOutliers[m.key] ? '<span class="fire-badge" title="+' + userOutliers[m.key].zScore + 'σ above avg">🔥</span>' : '';
       html += '<div class="profile-stat">'
-        + '<div class="pstat-value">' + m.format(totals[m.key]) + '</div>'
+        + '<div class="pstat-value">' + m.format(totals[m.key]) + fire + '</div>'
         + '<div class="pstat-label">' + m.label + '</div>'
         + '</div>';
     });

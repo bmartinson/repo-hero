@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const { WEIGHTS } = require('./score');
 
 const resultsDir = path.join(__dirname, '.results_history');
 const inputFile = path.join(resultsDir, 'combined_results.json');
@@ -752,6 +753,96 @@ header {
   font-weight: 700;
 }
 
+/* ─── Methodology Page ───────────────────────────────────────────────────── */
+
+.methodology-content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px 0 60px;
+  line-height: 1.7;
+}
+
+.meth-heading {
+  color: var(--fg-bright);
+  font-size: 22px;
+  font-weight: 700;
+  margin: 40px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.meth-heading:first-child { margin-top: 8px; }
+
+.meth-subheading {
+  color: var(--fg-cyan);
+  font-size: 15px;
+  font-weight: 500;
+  margin: 28px 0 8px;
+}
+
+.meth-text {
+  color: var(--fg);
+  font-size: 13px;
+  margin: 8px 0 14px;
+}
+
+.meth-text strong { color: var(--fg-bright); }
+.meth-text em { color: var(--fg-info); font-style: normal; }
+.meth-text code {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 12px;
+  color: var(--fg-cyan);
+}
+
+.meth-formula {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  font-size: 13px;
+  color: var(--fg-cyan);
+  margin: 16px 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+.meth-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+  font-size: 13px;
+}
+
+.meth-table th {
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 10px;
+  color: var(--fg-dim);
+  font-weight: 500;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.meth-table td {
+  padding: 8px 12px;
+  color: var(--fg);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: top;
+}
+
+.meth-table tr:hover td { background: var(--bg-card-hover); }
+
+.meth-mono {
+  font-family: var(--font);
+  color: var(--fg-cyan);
+  white-space: nowrap;
+}
+
 /* ─── Scan-line overlay (subtle CRT effect) ──────────────────────────────── */
 
 body::after {
@@ -840,6 +931,7 @@ body::after {
   <nav class="nav-bar">
     <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">DASHBOARD</button>
     <button class="nav-btn" data-tab="users" onclick="switchTab('users')">USERS</button>
+    <button class="nav-btn" data-tab="methodology" onclick="switchTab('methodology')">METHODOLOGY</button>
   </nav>
 
   <!-- ═══ Dashboard Tab ═══ -->
@@ -890,6 +982,129 @@ body::after {
       <button class="sort-btn" data-sort="filesTouched" onclick="setUserSort('filesTouched')">Files</button>
     </div>
     <div class="users-grid" id="users-grid"></div>
+  </div>
+
+  <!-- ═══ Methodology Tab ═══ -->
+  <div class="tab-panel" id="tab-methodology">
+    <div class="methodology-content">
+
+      <h2 class="meth-heading">How Scoring Works</h2>
+      <p class="meth-text">
+        Each contributor receives a <strong>score</strong> per time period based on a weighted sum
+        of their activity metrics. The formula is:
+      </p>
+      <div class="meth-formula">
+        score = ${Object.entries(WEIGHTS).map(([key, w]) => {
+          const label = key === 'loc' ? 'LOC' : key === 'filesTouched' ? 'Files Touched' : key === 'pullRequests' ? 'Pull Requests' : key === 'predictedPullRequests' ? 'Predicted PRs' : key === 'commits' ? 'Commits' : key === 'reviews' ? 'Reviews' : key;
+          if (w >= 1) return label + ' × ' + w;
+          return label + ' × ' + w.toFixed(w < 0.001 ? 4 : 4).replace(/0+$/, '').replace(/\\.$/, '');
+        }).join(' + ')}
+      </div>
+      <p class="meth-text">
+        When a contributor has real pull request data, their <em>Pull Requests</em> count is used.
+        When they have commits but zero PRs for a period, <em>Predicted PRs</em> are substituted instead
+        (never both — the higher-signal real data always takes priority).
+      </p>
+
+      <h3 class="meth-subheading">Weight Breakdown</h3>
+      <table class="meth-table">
+        <thead>
+          <tr><th>Metric</th><th>Weight</th><th>Rationale</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Pull Requests</td>
+            <td class="meth-mono">${WEIGHTS.pullRequests}</td>
+            <td>High weight — PRs represent complete, reviewable units of work.</td>
+          </tr>
+          <tr>
+            <td>Predicted PRs</td>
+            <td class="meth-mono">${WEIGHTS.predictedPullRequests}</td>
+            <td>Same weight as real PRs. Only used when real PR data is unavailable.</td>
+          </tr>
+          <tr>
+            <td>Reviews</td>
+            <td class="meth-mono">${WEIGHTS.reviews}</td>
+            <td>High weight — code reviews are critical to quality and team collaboration.</td>
+          </tr>
+          <tr>
+            <td>Commits</td>
+            <td class="meth-mono">${WEIGHTS.commits}</td>
+            <td>Low weight — raw commit count is noisy (squash vs. many small commits).</td>
+          </tr>
+          <tr>
+            <td>Lines of Code</td>
+            <td class="meth-mono">${WEIGHTS.loc}</td>
+            <td>Minimal weight — more code isn't necessarily better; avoids rewarding bloat.</td>
+          </tr>
+          <tr>
+            <td>Files Touched</td>
+            <td class="meth-mono">${WEIGHTS.filesTouched}</td>
+            <td>Minimal weight — breadth signal, but easily inflated by refactors or renames.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 class="meth-heading">Predicted Pull Requests</h2>
+      <p class="meth-text">
+        Many repositories — especially older ones or those without a PR-based workflow — have periods
+        where contributors committed directly to the main branch with no pull requests. Without
+        prediction, those periods would score near zero despite real work being done.
+      </p>
+
+      <h3 class="meth-subheading">Pass 1 — Learning Ratios</h3>
+      <p class="meth-text">
+        The enrichment pipeline scans <strong>all</strong> historical result files and, for every user who has
+        periods with real PR data, accumulates their total commits and total PRs to compute a personal
+        <strong>commits-per-PR ratio</strong> (e.g., "Brian averages 11.5 commits per PR"). A
+        <strong>team-wide average</strong> ratio is also computed as a fallback for users with no PR
+        history at all.
+      </p>
+
+      <h3 class="meth-subheading">Pass 2 — Synthesizing Predictions</h3>
+      <p class="meth-text">
+        For any period where a user has <strong>commits but zero PRs</strong>, their commit count is
+        divided by their personal ratio (or the team average) to produce a
+        <code>predictedPullRequests</code> value. If they <em>do</em> have real PRs in a period, any
+        stale prediction is removed — real data always wins.
+      </p>
+
+      <div class="meth-formula">
+        predictedPRs = commits ÷ personalCommitsPerPR
+      </div>
+
+      <h3 class="meth-subheading">How It Affects Scoring</h3>
+      <p class="meth-text">
+        The scoring function computes an <strong>effective PRs</strong> value: if <code>pullRequests > 0</code>,
+        use real PRs; otherwise use <code>predictedPullRequests</code>. This effective value receives the
+        same ${WEIGHTS.pullRequests}× weight, giving historical periods fair representation without
+        double-counting when real data exists.
+      </p>
+
+      <h2 class="meth-heading">Outlier Detection</h2>
+      <p class="meth-text">
+        For each metric in the active scope, the dashboard computes the <strong>mean</strong> and
+        <strong>standard deviation</strong> across all active contributors. Any user whose value exceeds
+        <strong>mean + 1.5σ</strong> is flagged as a positive outlier and receives a 🔥 badge on their
+        stat tile — indicating exceptional performance in that category.
+      </p>
+
+      <h2 class="meth-heading">Dashboard Metrics</h2>
+      <table class="meth-table">
+        <thead>
+          <tr><th>Metric</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Score</td><td>Weighted composite of all metrics below. Higher is better.</td></tr>
+          <tr><td>Pull Requests</td><td>Real PRs merged/opened, or predicted PRs when real data is unavailable.</td></tr>
+          <tr><td>Reviews</td><td>Pull request reviews performed (approved, commented, or requested changes).</td></tr>
+          <tr><td>Commits</td><td>Total git commits authored across all tracked repositories.</td></tr>
+          <tr><td>Lines of Code</td><td>Net lines added (insertions − deletions) across all commits.</td></tr>
+          <tr><td>Files Touched</td><td>Unique files modified across all commits in the period.</td></tr>
+          <tr><td>Active Contributors</td><td>Unique users with any commits, PRs, or reviews in the scope.</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 

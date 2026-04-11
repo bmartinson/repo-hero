@@ -6,7 +6,7 @@ A configurable product management analysis toolkit for analyzing the health of g
 
 A CLI-based configuration wizard will be included as part of the package in the future to help you build your application config. This configuration is stored at the same directory level as `gather-and-rank.js` and is named `config.json`. Here is an example of a usable application configuration:
 
-_All top level properties are required, except for `aliases`, `ignoreUsers`, `commitsPerPullRequest`, `resultsName`_
+_All top level properties are required, except for `aliases`, `ignoreUsers`, `commitsPerPullRequest`_
 
 ```javascript
 {
@@ -16,7 +16,6 @@ _All top level properties are required, except for `aliases`, `ignoreUsers`, `co
   "directory": "/Users/bmartinson/Development", // where to look for .git projects
   "startDate": "2023-09-01", // the starting range for analysis
   "endDate": "2024-09-01", // the ending range for analysis
-  "resultsName": "2024-09", // the name of the results json file, this is optional
   "commitsPerPullRequest": 12.5, // if your projects don't use pull requests and rely mostly on commits, use this to synthesize deliverables (pseudo-PRs)
   "projects": [
     "@bmartinson/repo-hero" // these are all of the project including owner name owner/repo - @ handles should be included
@@ -56,15 +55,27 @@ npm run config 2024-12
 #
 # Gather data based on your config.json file. Continually adjust your config
 # for new date ranges to gather all of the information you need.
-# See
+# Output files are automatically named from the date range (e.g. 2024-01-01_2024-01-31.json)
 #
 npm run gather # repeat for each config.json mod
+
+# Or override dates via CLI args:
+npm run gather -- --start 2024-01-01 --end 2024-01-07
 
 # now, combine all of your .results_history output
 npm run combine
 
 # once combined, generate useful csv files so you may plot and graph
 npm run chart
+
+# generate the interactive dashboard
+npm run dashboard
+
+# enrich historical data with predicted PR counts
+npm run enrich
+
+# re-index results for alias/ignore changes
+npm run reindex
 
 ### ALTERNATIVE OPERATION ###
 

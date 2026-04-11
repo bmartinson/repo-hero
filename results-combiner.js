@@ -4,8 +4,6 @@ const path = require('path');
 const resultsDir = path.join(__dirname, '.results_history');
 const outputFilePath = path.join(resultsDir, 'combined_results.json');
 
-const combinedResults = {};
-
 // Check if combined_results.json exists and delete it if it does
 if (fs.existsSync(outputFilePath)) {
   fs.unlinkSync(outputFilePath);
@@ -19,31 +17,34 @@ fs.readdir(resultsDir, (err, files) => {
     return;
   }
 
-  files.forEach(file => {
-    if (file === 'combined_results.json') {
-      // Skip the combined results file
-      return;
-    }
+  // Collect entries with their start dates for sorting
+  const entries = [];
 
-    // Only process JSON files
-    if (path.extname(file).toLowerCase() !== '.json') {
-      return;
-    }
+  files.forEach(file => {
+    if (file === 'combined_results.json') return;
+    if (path.extname(file).toLowerCase() !== '.json') return;
 
     const filePath = path.join(resultsDir, file);
+    if (filePath.toLowerCase().indexOf('.ds_store') >= 0) return;
 
-    if (filePath.toLowerCase().indexOf('.ds_store') >= 0) {
-      return;
-    }
-
-    const fileNameWithoutExt = path.parse(file).name;
-
-    // Read and parse each JSON file
     const fileContent = fs.readFileSync(filePath, 'utf-8');
     const jsonContent = JSON.parse(fileContent);
 
-    // Add the content to the combinedResults object
-    combinedResults[fileNameWithoutExt] = jsonContent;
+    // Use _report_info.start_date as the sort key (fall back to filename)
+    const startDate =
+      jsonContent?._report_info?.start_date ||
+      path.parse(file).name.split('_')[0];
+
+    entries.push({ startDate, key: path.parse(file).name, data: jsonContent });
+  });
+
+  // Sort by start date ascending
+  entries.sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+  // Build the combined results in sorted order
+  const combinedResults = {};
+  entries.forEach(e => {
+    combinedResults[e.key] = e.data;
   });
 
   // Write the combined results to a new JSON file

@@ -28,11 +28,26 @@ _cBgGray = '\x1b[100m';
 console.clear();
 
 console.log(`Commands:\n`);
-console.log(`  ${_cFgBlue}config${_cReset}\t(re-configure dates in config.json)\n`);
+console.log(
+  `  ${_cFgBlue}config${_cReset}\t(re-configure dates in config.json)\n`
+);
 console.log(`  ${_cFgGreen}start${_cReset}\t\t(execute all)`);
-console.log(`    ${_cFgGreen}gather${_cReset}\t(gather data and generate .results_history/*.json)`);
-console.log(`    ${_cFgGreen}combine${_cReset}\t(re-generate combined results)`);
-console.log(`    ${_cFgGreen}chart${_cReset}\t(re-generate csv files)\n`);
+console.log(
+  `    ${_cFgGreen}gather${_cReset}\t(gather data and generate .results_history/*.json)`
+);
+console.log(`    \t\t  --start YYYY-MM-DD  (override start date)`);
+console.log(`    \t\t  --end   YYYY-MM-DD  (override end date)`);
+console.log(
+  `    ${_cFgGreen}combine${_cReset}\t(re-generate combined results)`
+);
+console.log(`    ${_cFgGreen}chart${_cReset}\t(re-generate csv files)`);
+console.log(`    ${_cFgGreen}dashboard${_cReset}\t(re-generate dashboard)`);
+console.log(
+  `    ${_cFgGreen}enrich${_cReset}\t(enrich historical data with PR predictions)`
+);
+console.log(
+  `    ${_cFgGreen}reindex${_cReset}\t(re-index for alias/ignore changes)\n`
+);
 console.log(`  ${_cFgYellow}help${_cReset}\t\t(display this menu)`);
 
 console.log('');

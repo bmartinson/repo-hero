@@ -19,26 +19,37 @@ if (!fs.existsSync(inputFile)) {
 const raw = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
 
 // Build a structured payload for the dashboard
-const months = Object.keys(raw)
+const keys = Object.keys(raw)
   .filter(k => k !== 'combined_results')
   .sort();
 
 const dashboardData = {
-  months: [],
+  periods: [],
   users: {},
   team: [],
 };
 
-months.forEach(month => {
-  const entry = raw[month];
+keys.forEach(key => {
+  const entry = raw[key];
   if (!entry || !entry.users) return;
 
-  const dateLabel = month.slice(0, 7); // YYYY-MM
+  const startDate = entry?._report_info?.start_date || key.split('_')[0];
+  const endDate =
+    entry?._report_info?.end_date || key.split('_')[1] || startDate;
 
-  dashboardData.months.push(dateLabel);
+  // Use start_date as the unique period ID
+  const periodId = startDate;
+
+  dashboardData.periods.push({
+    id: periodId,
+    startDate,
+    endDate,
+  });
 
   dashboardData.team.push({
-    date: dateLabel,
+    periodId,
+    startDate,
+    endDate,
     teamScore: entry.teamScore || 0,
     activeUsers: entry.activeUsers || 0,
     totalPullRequests: entry.totalPullRequests || 0,
@@ -51,7 +62,7 @@ months.forEach(month => {
     if (!dashboardData.users[name]) {
       dashboardData.users[name] = { name, data: {} };
     }
-    dashboardData.users[name].data[dateLabel] = {
+    dashboardData.users[name].data[periodId] = {
       score: user.score || 0,
       commits: user.commits || 0,
       pullRequests: user.pullRequests || 0,
@@ -63,8 +74,15 @@ months.forEach(month => {
   });
 });
 
-// Deduplicate months
-dashboardData.months = [...new Set(dashboardData.months)].sort();
+// Deduplicate periods by ID and sort by startDate
+const seen = new Set();
+dashboardData.periods = dashboardData.periods
+  .filter(p => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  })
+  .sort((a, b) => a.startDate.localeCompare(b.startDate));
 
 // ─── Build HTML ─────────────────────────────────────────────────────────────
 
@@ -650,10 +668,14 @@ body::after {
     <!-- Filter bar -->
     <div class="filter-bar">
       <span class="label">Scope:</span>
-      <button class="scope-btn" data-scope="1" onclick="setScope(1)">1M</button>
-      <button class="scope-btn" data-scope="3" onclick="setScope(3)">3M</button>
-      <button class="scope-btn" data-scope="6" onclick="setScope(6)">6M</button>
-      <button class="scope-btn active" data-scope="12" onclick="setScope(12)">1Y</button>
+      <button class="scope-btn" data-scope="7" onclick="setScope(7)">1W</button>
+      <button class="scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
+      <button class="scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
+      <button class="scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
+      <button class="scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
+      <button class="scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
+      <button class="scope-btn active" data-scope="365" onclick="setScope(365)">1Y</button>
+      <button class="scope-btn" data-scope="0" onclick="setScope(0)">All</button>
     </div>
 
     <!-- Summary cards -->
@@ -667,10 +689,14 @@ body::after {
   <div class="tab-panel" id="tab-users">
     <div class="filter-bar">
       <span class="label">Scope:</span>
-      <button class="scope-btn users-scope-btn" data-scope="1" onclick="setScope(1)">1M</button>
-      <button class="scope-btn users-scope-btn" data-scope="3" onclick="setScope(3)">3M</button>
-      <button class="scope-btn users-scope-btn" data-scope="6" onclick="setScope(6)">6M</button>
-      <button class="scope-btn users-scope-btn active" data-scope="12" onclick="setScope(12)">1Y</button>
+      <button class="scope-btn users-scope-btn" data-scope="7" onclick="setScope(7)">1W</button>
+      <button class="scope-btn users-scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
+      <button class="scope-btn users-scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
+      <button class="scope-btn users-scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
+      <button class="scope-btn users-scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
+      <button class="scope-btn users-scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
+      <button class="scope-btn users-scope-btn active" data-scope="365" onclick="setScope(365)">1Y</button>
+      <button class="scope-btn users-scope-btn" data-scope="0" onclick="setScope(0)">All</button>
     </div>
     <div class="users-sort-bar">
       <span class="label">Sort by:</span>
@@ -698,7 +724,8 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   'use strict';
 
   const DATA = window.__REPO_HERO_DATA__;
-  const ALL_MONTHS = DATA.months;
+  const ALL_PERIODS = DATA.periods; // [{id, startDate, endDate}, ...]
+  const ALL_PERIOD_IDS = ALL_PERIODS.map(p => p.id);
   const METRICS = [
     { key: 'score',        label: 'Score',         color: '#00ddcc', format: v => v.toFixed(0) },
     { key: 'effectivePRs', label: 'Pull Requests',  color: '#00aaff', format: v => v.toFixed(0), dataKey: 'effectivePR' },
@@ -710,26 +737,54 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   const CHART_COLORS = ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff'];
 
-  let currentScope = 12;
+  let currentScope = 365; // days (0 = all)
   let currentSort = 'score';
   let charts = {};
   let profileCharts = {};
 
   // ─── Helpers ────────────────────────────────────────────────────────────
 
-  function getScopedMonths() {
-    if (ALL_MONTHS.length === 0) return [];
-    const end = ALL_MONTHS.length - 1;
-    const start = Math.max(0, end - currentScope + 1);
-    return ALL_MONTHS.slice(start, end + 1);
+  function parseDate(str) { return new Date(str + 'T00:00:00'); }
+  function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+
+  function getScopedPeriods() {
+    if (ALL_PERIODS.length === 0) return [];
+    if (currentScope === 0) return ALL_PERIOD_IDS; // All time
+
+    const latest = parseDate(ALL_PERIODS[ALL_PERIODS.length - 1].endDate);
+    const cutoff = new Date(latest);
+    cutoff.setDate(cutoff.getDate() - currentScope);
+
+    return ALL_PERIODS
+      .filter(p => parseDate(p.startDate) >= cutoff)
+      .map(p => p.id);
   }
 
-  function getUserTotals(userName, months) {
+  function formatPeriodLabel(periodId) {
+    const p = ALL_PERIODS.find(x => x.id === periodId);
+    if (!p) return periodId;
+    const s = parseDate(p.startDate);
+    const e = parseDate(p.endDate);
+    const span = daysBetween(s, e);
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    if (span <= 7) {
+      // Weekly: "Apr 1"
+      return mo[s.getMonth()] + ' ' + s.getDate();
+    } else if (span <= 31) {
+      // Monthly: "Jan '24"
+      return mo[s.getMonth()] + " '" + String(s.getFullYear()).slice(2);
+    } else {
+      // Yearly or custom: "2024"
+      return String(s.getFullYear());
+    }
+  }
+
+  function getUserTotals(userName, periods) {
     const ud = DATA.users[userName];
     if (!ud) return { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, reviews:0, loc:0, filesTouched:0 };
     const totals = { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, reviews:0, loc:0, filesTouched:0 };
-    months.forEach(m => {
-      const d = ud.data[m];
+    periods.forEach(p => {
+      const d = ud.data[p];
       if (d) {
         totals.score += d.score;
         totals.commits += d.commits;
@@ -744,20 +799,19 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     return totals;
   }
 
-  function getTopUsers(metricKey, months, limit) {
+  function getTopUsers(metricKey, periods, limit) {
     const userNames = Object.keys(DATA.users);
     const scored = userNames.map(name => {
-      const totals = getUserTotals(name, months);
+      const totals = getUserTotals(name, periods);
       return { name, value: totals[metricKey] };
     });
     scored.sort((a, b) => b.value - a.value);
     return scored.filter(u => u.value > 0).slice(0, limit);
   }
 
-  function getTeamSummary(months) {
-    const filtered = DATA.team.filter(t => months.includes(t.date));
+  function getTeamSummary(periods) {
+    const filtered = DATA.team.filter(t => periods.includes(t.periodId));
     if (filtered.length === 0) return { teamScore:0, activeUsers:0, totalPullRequests:0, totalCommits:0 };
-    const last = filtered[filtered.length - 1];
     const avg = (key) => filtered.reduce((s,t) => s + t[key], 0) / filtered.length;
     return {
       teamScore: avg('teamScore'),
@@ -832,14 +886,25 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   // ─── Render summary cards ──────────────────────────────────────────────
 
   function renderSummary() {
-    const months = getScopedMonths();
-    const summary = getTeamSummary(months);
+    const periods = getScopedPeriods();
+    const summary = getTeamSummary(periods);
 
-    // Compute a previous-period summary for delta
-    const prevEnd = Math.max(0, ALL_MONTHS.length - currentScope - 1);
-    const prevStart = Math.max(0, prevEnd - currentScope + 1);
-    const prevMonths = ALL_MONTHS.slice(prevStart, prevEnd + 1);
-    const prevSummary = getTeamSummary(prevMonths);
+    // Compute a previous-period summary for delta comparison
+    let prevPeriods = [];
+    if (currentScope > 0 && ALL_PERIODS.length > 0) {
+      const latest = parseDate(ALL_PERIODS[ALL_PERIODS.length - 1].endDate);
+      const cutoffEnd = new Date(latest);
+      cutoffEnd.setDate(cutoffEnd.getDate() - currentScope);
+      const cutoffStart = new Date(cutoffEnd);
+      cutoffStart.setDate(cutoffStart.getDate() - currentScope);
+      prevPeriods = ALL_PERIODS
+        .filter(p => {
+          const s = parseDate(p.startDate);
+          return s >= cutoffStart && s < cutoffEnd;
+        })
+        .map(p => p.id);
+    }
+    const prevSummary = getTeamSummary(prevPeriods);
 
     const cards = [
       { label: 'Avg Team Score', value: summary.teamScore, prev: prevSummary.teamScore, fmt: v => v.toFixed(1) },
@@ -862,7 +927,8 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   // ─── Render widgets ────────────────────────────────────────────────────
 
   function renderWidgets() {
-    const months = getScopedMonths();
+    const periods = getScopedPeriods();
+    const labels = periods.map(formatPeriodLabel);
     const grid = document.getElementById('widget-grid');
 
     // First pass: create DOM structure
@@ -880,15 +946,15 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     METRICS.forEach((metric, mi) => {
       // Top 5 for chart lines
-      const top5 = getTopUsers(metric.key, months, 5);
+      const top5 = getTopUsers(metric.key, periods, 5);
 
       // Build datasets
       const datasets = top5.map((user, ui) => {
         const ud = DATA.users[user.name];
         return {
           label: user.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '),
-          data: months.map(m => {
-            const d = ud.data[m];
+          data: periods.map(p => {
+            const d = ud.data[p];
             if (!d) return 0;
             if (metric.key === 'effectivePRs') return d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
             return d[metric.key] || 0;
@@ -903,7 +969,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       if (charts[metric.key]) charts[metric.key].destroy();
 
       const canvas = document.getElementById('chart-' + metric.key);
-      charts[metric.key] = new Chart(canvas, makeChartConfig(months, datasets, metric.format));
+      charts[metric.key] = new Chart(canvas, makeChartConfig(labels, datasets, metric.format));
 
       // Leaderboard
       const lb = document.getElementById('lb-' + metric.key);
@@ -920,11 +986,11 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   // ─── Render users grid ─────────────────────────────────────────────────
 
   function renderUsers() {
-    const months = getScopedMonths();
+    const periods = getScopedPeriods();
     const userNames = Object.keys(DATA.users);
     const usersWithTotals = userNames.map(name => ({
       name,
-      totals: getUserTotals(name, months)
+      totals: getUserTotals(name, periods)
     }));
 
     usersWithTotals.sort((a, b) => b.totals[currentSort] - a.totals[currentSort]);
@@ -960,19 +1026,25 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   window.openProfile = function(userName) {
     const overlay = document.getElementById('profile-overlay');
     const panel = document.getElementById('profile-panel');
-    const months = getScopedMonths();
-    const totals = getUserTotals(userName, months);
+    const periods = getScopedPeriods();
+    const labels = periods.map(formatPeriodLabel);
+    const totals = getUserTotals(userName, periods);
     const displayName = userName.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
     const ud = DATA.users[userName];
 
     // Compute rank
-    const allUsers = Object.keys(DATA.users).map(n => ({ name: n, score: getUserTotals(n, months).score }));
+    const allUsers = Object.keys(DATA.users).map(n => ({ name: n, score: getUserTotals(n, periods).score }));
     allUsers.sort((a, b) => b.score - a.score);
     const rank = allUsers.findIndex(u => u.name === userName) + 1;
 
+    // Determine date range label
+    const firstPeriod = ALL_PERIODS.find(p => p.id === periods[0]);
+    const lastPeriod = ALL_PERIODS.find(p => p.id === periods[periods.length - 1]);
+    const rangeLabel = (firstPeriod ? firstPeriod.startDate : '') + ' to ' + (lastPeriod ? lastPeriod.endDate : '');
+
     let html = '<button class="profile-close" onclick="closeProfile()">✕ CLOSE</button>';
     html += '<div class="profile-name">' + displayName + '</div>';
-    html += '<div class="profile-subtitle">Rank #' + rank + ' of ' + allUsers.filter(u => u.score > 0).length + ' active contributors &mdash; ' + months[0] + ' to ' + months[months.length-1] + '</div>';
+    html += '<div class="profile-subtitle">Rank #' + rank + ' of ' + allUsers.filter(u => u.score > 0).length + ' active contributors &mdash; ' + rangeLabel + '</div>';
 
     html += '<div class="profile-stats">';
     METRICS.forEach(m => {
@@ -1001,14 +1073,14 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     METRICS.forEach(m => {
       const canvas = document.getElementById('pchart-' + m.key);
-      const data = months.map(mo => {
-        const d = ud && ud.data[mo];
+      const data = periods.map(p => {
+        const d = ud && ud.data[p];
         if (!d) return 0;
         if (m.key === 'effectivePRs') return d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
         return d[m.key] || 0;
       });
       profileCharts[m.key] = new Chart(canvas, makeChartConfig(
-        months,
+        labels,
         [{
           label: m.label,
           data,
@@ -1037,9 +1109,9 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   // ─── Scope filter ──────────────────────────────────────────────────────
 
-  window.setScope = function(months) {
-    currentScope = months;
-    document.querySelectorAll('.scope-btn').forEach(b => b.classList.toggle('active', +b.dataset.scope === months));
+  window.setScope = function(days) {
+    currentScope = days;
+    document.querySelectorAll('.scope-btn').forEach(b => b.classList.toggle('active', +b.dataset.scope === days));
     renderAll();
   };
 
@@ -1065,8 +1137,10 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   function init() {
     const rangeEl = document.getElementById('data-range');
-    if (ALL_MONTHS.length > 0) {
-      rangeEl.textContent = 'DATA RANGE: ' + ALL_MONTHS[0] + ' — ' + ALL_MONTHS[ALL_MONTHS.length - 1] + ' (' + ALL_MONTHS.length + ' months)';
+    if (ALL_PERIODS.length > 0) {
+      const first = ALL_PERIODS[0];
+      const last = ALL_PERIODS[ALL_PERIODS.length - 1];
+      rangeEl.textContent = 'DATA RANGE: ' + first.startDate + ' — ' + last.endDate + ' (' + ALL_PERIODS.length + ' periods)';
     } else {
       rangeEl.textContent = 'NO DATA AVAILABLE';
     }

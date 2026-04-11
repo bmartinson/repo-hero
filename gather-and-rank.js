@@ -458,6 +458,21 @@ function _configureApp() {
   _START_DATE = _CONFIG.startDate;
   _END_DATE = _CONFIG.endDate;
 
+  // Allow CLI overrides: --start YYYY-MM-DD --end YYYY-MM-DD
+  const args = process.argv.slice(2);
+  const startIdx = args.indexOf('--start');
+  const endIdx = args.indexOf('--end');
+  if (
+    startIdx !== -1 &&
+    args[startIdx + 1] &&
+    isValidDate(args[startIdx + 1])
+  ) {
+    _START_DATE = args[startIdx + 1];
+  }
+  if (endIdx !== -1 && args[endIdx + 1] && isValidDate(args[endIdx + 1])) {
+    _END_DATE = args[endIdx + 1];
+  }
+
   if (!_RESULTS) {
     _RESULTS = {};
   }
@@ -535,13 +550,16 @@ function _saveResults() {
     fs.mkdirSync(resultsDir);
   }
 
-  // Create the filename with the current Unix timestamp
-  const timestamp = Date.now();
+  // Derive filename from the date range
   let resultsFilePath = '';
 
   if (!!_CONFIG?.resultsName) {
+    // Legacy: use explicit resultsName if provided
     resultsFilePath = path.join(resultsDir, `${_CONFIG?.resultsName}.json`);
+  } else if (_START_DATE && _END_DATE) {
+    resultsFilePath = path.join(resultsDir, `${_START_DATE}_${_END_DATE}.json`);
   } else {
+    const timestamp = Date.now();
     resultsFilePath = path.join(resultsDir, `results_${timestamp}.json`);
   }
 

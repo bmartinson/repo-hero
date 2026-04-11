@@ -11,7 +11,7 @@ const WEIGHTS = {
   pullRequests: 14,
   predictedPullRequests: 14,
   commits: 1 / 100,
-  reviews: 20,
+  reviews: 16,
 };
 
 /**

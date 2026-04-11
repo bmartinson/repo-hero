@@ -717,10 +717,10 @@ body::after {
       <button class="scope-btn" data-scope="7" onclick="setScope(7)">1W</button>
       <button class="scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
       <button class="scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
-      <button class="scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
+      <button class="scope-btn active" data-scope="30" onclick="setScope(30)">1M</button>
       <button class="scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
       <button class="scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
-      <button class="scope-btn active" data-scope="365" onclick="setScope(365)">1Y</button>
+      <button class="scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
       <button class="scope-btn" data-scope="0" onclick="setScope(0)">All</button>
     </div>
 
@@ -738,10 +738,10 @@ body::after {
       <button class="scope-btn users-scope-btn" data-scope="7" onclick="setScope(7)">1W</button>
       <button class="scope-btn users-scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
       <button class="scope-btn users-scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
-      <button class="scope-btn users-scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
+      <button class="scope-btn users-scope-btn active" data-scope="30" onclick="setScope(30)">1M</button>
       <button class="scope-btn users-scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
       <button class="scope-btn users-scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
-      <button class="scope-btn users-scope-btn active" data-scope="365" onclick="setScope(365)">1Y</button>
+      <button class="scope-btn users-scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
       <button class="scope-btn users-scope-btn" data-scope="0" onclick="setScope(0)">All</button>
     </div>
     <div class="users-sort-bar">
@@ -783,7 +783,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   const CHART_COLORS = ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff'];
 
-  let currentScope = 365; // days (0 = all)
+  let currentScope = 30; // days (0 = all)
   let currentSort = 'score';
   let charts = {};
   let profileCharts = {};
@@ -958,6 +958,46 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     };
   }
 
+  // Bar chart: users on x-axis, single metric on y-axis (used for 1W scope)
+  function makeBarChartConfig(userLabels, values, colors, yFormat) {
+    return {
+      type: 'bar',
+      data: {
+        labels: userLabels,
+        datasets: [{
+          label: '',
+          data: values,
+          backgroundColor: colors.map(c => c + 'bb'),
+          borderColor: colors,
+          borderWidth: 1,
+          borderRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a1a1a',
+            borderColor: '#333',
+            borderWidth: 1,
+            titleFont: { size: 11 },
+            bodyFont: { size: 11 },
+            callbacks: yFormat
+              ? { label: ctx => yFormat(ctx.parsed.y) }
+              : {}
+          }
+        },
+        scales: {
+          x: { grid: { color: '#1a1a1a' }, ticks: { maxRotation: 35, font: { size: 10 } } },
+          y: { grid: { color: '#1a1a1a' }, ticks: { callback: yFormat || (v => v), font: { size: 10 } }, beginAtZero: true }
+        }
+      }
+    };
+  }
+
   // ─── Render summary cards ──────────────────────────────────────────────
 
   function renderSummary() {
@@ -1003,14 +1043,14 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   function renderWidgets() {
     const periods = getScopedPeriods();
-    const labels = periods.map(formatPeriodLabel);
+    const isWeekView = currentScope === 7;
     const grid = document.getElementById('widget-grid');
 
     // First pass: create DOM structure
     if (grid.children.length === 0) {
       grid.innerHTML = METRICS.map((m, i) =>
         '<div class="widget">'
-          + '<div class="widget-header"><span class="widget-title">' + m.label + ' Trends</span></div>'
+          + '<div class="widget-header"><span class="widget-title" id="widget-title-' + m.key + '">' + m.label + ' Trends</span></div>'
           + '<div class="widget-body">'
             + '<div class="widget-chart"><canvas id="chart-' + m.key + '"></canvas></div>'
             + '<div class="widget-leaderboard" id="lb-' + m.key + '"></div>'
@@ -1020,41 +1060,73 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     }
 
     METRICS.forEach((metric, mi) => {
-      // Top 5 for chart lines
-      const top5 = getTopUsers(metric.key, periods, 5);
-
-      // Build datasets
-      const datasets = top5.map((user, ui) => {
-        const ud = DATA.users[user.name];
-        return {
-          label: user.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '),
-          data: periods.map(p => {
-            const d = ud.data[p];
-            if (!d) return 0;
-            if (metric.key === 'effectivePRs') return d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
-            return d[metric.key] || 0;
-          }),
-          borderColor: CHART_COLORS[ui % CHART_COLORS.length],
-          backgroundColor: CHART_COLORS[ui % CHART_COLORS.length] + '15',
-          fill: false
-        };
-      });
+      const titleEl = document.getElementById('widget-title-' + metric.key);
+      if (titleEl) titleEl.textContent = metric.label + (isWeekView ? ' — This Week' : ' Trends');
 
       // Destroy previous chart if exists
       if (charts[metric.key]) charts[metric.key].destroy();
 
       const canvas = document.getElementById('chart-' + metric.key);
-      charts[metric.key] = new Chart(canvas, makeChartConfig(labels, datasets, metric.format));
 
-      // Leaderboard
-      const lb = document.getElementById('lb-' + metric.key);
-      lb.innerHTML = top5.map((u, i) =>
-        '<div class="lb-item" onclick="openProfile(\\'' + u.name.replace(/'/g, "\\\\'") + '\\')">'
-          + '<span class="lb-rank ' + rankClass(i) + '">' + (i + 1) + '</span>'
-          + '<span class="lb-name">' + u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ') + '</span>'
-          + '<span class="lb-value">' + metric.format(u.value) + '</span>'
-        + '</div>'
-      ).join('');
+      if (isWeekView) {
+        // Bar chart: all active users sorted by value descending, on x-axis
+        const allUsers = Object.keys(DATA.users)
+          .map(name => {
+            const totals = getUserTotals(name, periods);
+            const value = metric.key === 'effectivePRs' ? totals.effectivePRs : (totals[metric.key] || 0);
+            return { name, value };
+          })
+          .filter(u => u.value > 0)
+          .sort((a, b) => b.value - a.value);
+
+        const userLabels = allUsers.map(u => u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '));
+        const values = allUsers.map(u => u.value);
+        const colors = allUsers.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
+
+        charts[metric.key] = new Chart(canvas, makeBarChartConfig(userLabels, values, colors, metric.format));
+
+        // Leaderboard: top 5 from same sorted list
+        const lb = document.getElementById('lb-' + metric.key);
+        lb.innerHTML = allUsers.slice(0, 5).map((u, i) =>
+          '<div class="lb-item" onclick="openProfile(\\'' + u.name.replace(/'/g, "\\\\'") + '\\')">'
+            + '<span class="lb-rank ' + rankClass(i) + '">' + (i + 1) + '</span>'
+            + '<span class="lb-name">' + u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ') + '</span>'
+            + '<span class="lb-value">' + metric.format(u.value) + '</span>'
+          + '</div>'
+        ).join('');
+      } else {
+        // Line chart: top 5 users over time
+        const labels = periods.map(formatPeriodLabel);
+        const top5 = getTopUsers(metric.key, periods, 5);
+
+        const datasets = top5.map((user, ui) => {
+          const ud = DATA.users[user.name];
+          return {
+            label: user.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '),
+            data: periods.map(p => {
+              const d = ud.data[p];
+              if (!d) return 0;
+              if (metric.key === 'effectivePRs') return d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
+              return d[metric.key] || 0;
+            }),
+            borderColor: CHART_COLORS[ui % CHART_COLORS.length],
+            backgroundColor: CHART_COLORS[ui % CHART_COLORS.length] + '15',
+            fill: false
+          };
+        });
+
+        charts[metric.key] = new Chart(canvas, makeChartConfig(labels, datasets, metric.format));
+
+        // Leaderboard
+        const lb = document.getElementById('lb-' + metric.key);
+        lb.innerHTML = top5.map((u, i) =>
+          '<div class="lb-item" onclick="openProfile(\\'' + u.name.replace(/'/g, "\\\\'") + '\\')">'
+            + '<span class="lb-rank ' + rankClass(i) + '">' + (i + 1) + '</span>'
+            + '<span class="lb-name">' + u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ') + '</span>'
+            + '<span class="lb-value">' + metric.format(u.value) + '</span>'
+          + '</div>'
+        ).join('');
+      }
     });
   }
 

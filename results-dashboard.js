@@ -172,6 +172,11 @@ const logoSvg = fs.existsSync(logoFile)
   ? fs.readFileSync(logoFile, 'utf8')
   : '';
 
+const bjmFaviconFile = path.join(__dirname, 'assets', 'bjm-favicon.png');
+const bjmFaviconB64 = fs.existsSync(bjmFaviconFile)
+  ? fs.readFileSync(bjmFaviconFile).toString('base64')
+  : '';
+
 const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1013,7 +1018,12 @@ body::after {
   opacity: 0.6;
 }
 
+.footer-icon.footer-icon-img {
+  filter: brightness(1.4) saturate(0.8);
+}
+
 .site-footer a:hover .footer-icon { opacity: 1; }
+.site-footer a:hover .footer-icon-img { filter: brightness(1.8) saturate(1); }
 
 </style>
 </head>
@@ -1236,7 +1246,7 @@ body::after {
     </a>
     <span class="footer-sep">|</span>
     <a href="https://www.brianmartinson.com" target="_blank" rel="noopener">
-      <svg class="footer-icon" viewBox="0 0 100 100" fill="currentColor"><text x="50" y="72" text-anchor="middle" font-family="Georgia, serif" font-size="58" font-weight="700" fill="currentColor">BJM</text></svg>
+      <img class="footer-icon footer-icon-img" src="data:image/png;base64,${bjmFaviconB64}" alt="BJM">
       Developed by Brian Martinson
     </a>
   </div>

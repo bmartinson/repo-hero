@@ -10,14 +10,13 @@ function isLeapYear(year) {
 function updateConfig(dateString) {
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-  let startDate, endDate, resultsName;
+  let startDate, endDate;
 
   if (/^\d{4}$/.test(dateString)) {
     // Four digit year case
     const year = dateString;
     startDate = `${year}-01-01`;
     endDate = `${year}-12-31`;
-    resultsName = `${year}`;
   } else if (/^\d{4}-\d{2}$/.test(dateString)) {
     // YYYY-MM case
     const [year, month] = dateString.split('-');
@@ -29,14 +28,15 @@ function updateConfig(dateString) {
       startDate = `${year}-${month}-01`;
       endDate = `${year}-${month}-${lastDay}`;
     }
-    resultsName = `${dateString}`;
   } else {
     throw new Error('Invalid date format. Use YYYY or YYYY-MM.');
   }
 
   config.startDate = `${startDate}`;
   config.endDate = `${endDate}`;
-  config.resultsName = `${resultsName}`;
+
+  // Remove legacy resultsName if present
+  delete config.resultsName;
 
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
   console.log('Config updated successfully.');

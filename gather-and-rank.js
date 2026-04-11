@@ -136,13 +136,17 @@ function getAliasForUser(user) {
  */
 async function executeCommand(command, directory) {
   return new Promise((resolve, reject) => {
-    exec(command, { cwd: directory }, (error, stdout) => {
-      if (error) {
-        reject(`Error executing command: ${error.message}`);
-        return;
+    exec(
+      command,
+      { cwd: directory, maxBuffer: 50 * 1024 * 1024 },
+      (error, stdout) => {
+        if (error) {
+          reject(`Error executing command: ${error.message}`);
+          return;
+        }
+        resolve(stdout);
       }
-      resolve(stdout);
-    });
+    );
   });
 }
 
@@ -458,6 +462,28 @@ function _configureApp() {
   _START_DATE = _CONFIG.startDate;
   _END_DATE = _CONFIG.endDate;
 
+  // Allow CLI overrides: --start YYYY-MM-DD --end YYYY-MM-DD
+  const args = process.argv.slice(2);
+  const startIdx = args.indexOf('--start');
+  const endIdx = args.indexOf('--end');
+  if (
+    startIdx !== -1 &&
+    args[startIdx + 1] &&
+    isValidDate(args[startIdx + 1])
+  ) {
+    _START_DATE = args[startIdx + 1];
+  }
+  if (endIdx !== -1 && args[endIdx + 1] && isValidDate(args[endIdx + 1])) {
+    _END_DATE = args[endIdx + 1];
+  }
+
+  // Cap end date at today so we never query future data
+  const today = new Date().toISOString().slice(0, 10);
+  if (_END_DATE > today) {
+    console.log(`End date ${_END_DATE} is in the future — capping at ${today}`);
+    _END_DATE = today;
+  }
+
   if (!_RESULTS) {
     _RESULTS = {};
   }
@@ -535,13 +561,16 @@ function _saveResults() {
     fs.mkdirSync(resultsDir);
   }
 
-  // Create the filename with the current Unix timestamp
-  const timestamp = Date.now();
+  // Derive filename from the date range
   let resultsFilePath = '';
 
   if (!!_CONFIG?.resultsName) {
+    // Legacy: use explicit resultsName if provided
     resultsFilePath = path.join(resultsDir, `${_CONFIG?.resultsName}.json`);
+  } else if (_START_DATE && _END_DATE) {
+    resultsFilePath = path.join(resultsDir, `${_START_DATE}_${_END_DATE}.json`);
   } else {
+    const timestamp = Date.now();
     resultsFilePath = path.join(resultsDir, `results_${timestamp}.json`);
   }
 
@@ -618,7 +647,7 @@ function _processProjects() {
                             `Error processing user commits for ${project}:`,
                             error
                           );
-                          reject(error);
+                          resolve();
                         });
                     })
                     .catch(error => {
@@ -626,7 +655,7 @@ function _processProjects() {
                         `Error fetching users for ${project}:`,
                         error
                       );
-                      reject(error);
+                      resolve();
                     });
                 })
                 .catch(error => {
@@ -634,12 +663,12 @@ function _processProjects() {
                     `Error counting commits for ${project}:`,
                     error
                   );
-                  reject(error);
+                  resolve();
                 });
             })
             .catch(error => {
               console.error(`Error discovering ${project}:`, error);
-              reject(error);
+              resolve();
             });
         })
       );
@@ -658,7 +687,11 @@ function _processProjects() {
               contResolve();
             })
             .catch(error => {
-              contReject();
+              console.error(
+                `Error fetching contributors for ${project}:`,
+                error
+              );
+              contResolve();
             });
         })
       );
@@ -673,7 +706,11 @@ function _processProjects() {
               prResolve();
             })
             .catch(error => {
-              prReject();
+              console.error(
+                `Error fetching pull requests for ${project}:`,
+                error
+              );
+              prResolve();
             });
         })
       );
@@ -858,7 +895,7 @@ function processUserCommits(packageName) {
       })
       .catch(error => {
         console.error(`Error counting commits for ${packageName}:`, error);
-        reject();
+        resolve(); // gracefully continue instead of crashing the pipeline
       });
   });
 }

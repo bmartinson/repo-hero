@@ -1372,7 +1372,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     // ─── Per-period breakdown table ──────────────────────────────────────
     html += '<div class="profile-breakdown">';
-    html += '<button class="breakdown-toggle" onclick="this.classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')">'
+    html += '<button class="breakdown-toggle" onclick="this.classList.toggle(\\'open\\');this.nextElementSibling.classList.toggle(\\'open\\')">'
       + '<span class="caret">▶</span> CONTRIBUTION BREAKDOWN (' + periods.length + ' periods)</button>';
     html += '<div class="breakdown-table-wrap">';
     html += '<table class="breakdown-table">';

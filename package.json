@@ -12,6 +12,7 @@
     "combine": "rm -rf .results_history/combined_results.json && node results-combiner.js",
     "chart": "rm -rf .results_history/*.csv && node results-charter.js; node results-team-charter.js; node results-dashboard.js",
     "dashboard": "node results-dashboard.js",
+    "reindex": "node results-reindexer.js",
     "help": "node help.js"
   },
   "repository": {

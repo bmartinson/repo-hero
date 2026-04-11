@@ -936,9 +936,23 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     const filtered = DATA.team.filter(t => periods.includes(t.periodId));
     if (filtered.length === 0) return { teamScore:0, activeUsers:0, totalPullRequests:0, totalCommits:0 };
     const avg = (key) => filtered.reduce((s,t) => s + t[key], 0) / filtered.length;
+
+    // Count unique users who had any activity across all scoped periods
+    const activeSet = new Set();
+    Object.keys(DATA.users).forEach(name => {
+      const ud = DATA.users[name];
+      for (const pid of periods) {
+        const d = ud.data[pid];
+        if (d && (d.commits > 0 || d.pullRequests > 0 || d.reviews > 0)) {
+          activeSet.add(name);
+          break;
+        }
+      }
+    });
+
     return {
       teamScore: avg('teamScore'),
-      activeUsers: Math.round(avg('activeUsers')),
+      activeUsers: activeSet.size,
       totalPullRequests: filtered.reduce((s,t) => s + t.totalPullRequests, 0),
       totalCommits: filtered.reduce((s,t) => s + t.totalCommits, 0),
     };

@@ -82,6 +82,61 @@ function generateWeeks(start, end) {
 const weeks = generateWeeks(startDate, endDate);
 const resultsDir = path.join(__dirname, '.results_history');
 
+// ─── Detect and remove overlapping weekly files ─────────────────────────────
+// Remove existing YYYY-MM-DD_YYYY-MM-DD.json files that overlap our target
+// weeks but have different boundaries (from prior runs with different date caps).
+// Only removes files ≤ 14 days to avoid deleting monthly or large-range files.
+
+const expectedFiles = new Set(weeks.map(w => `${w.start}_${w.end}.json`));
+
+if (fs.existsSync(resultsDir)) {
+  const existing = fs.readdirSync(resultsDir).filter(f => f.endsWith('.json'));
+  const dateRangePattern = /^(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})\.json$/;
+  const monthlyPattern = /^(\d{4}-\d{2})\.json$/;
+
+  existing.forEach(f => {
+    if (expectedFiles.has(f)) return; // exact match — keep
+    const m = f.match(dateRangePattern);
+    if (!m) {
+      // Check if it's a monthly file (YYYY-MM.json) covered by our target weeks
+      const mm = f.match(monthlyPattern);
+      if (mm) {
+        const monthStr = mm[1]; // e.g. "2026-03"
+        const monthStart = monthStr + '-01';
+        const monthEndD = new Date(monthStr + '-01T00:00:00');
+        monthEndD.setMonth(monthEndD.getMonth() + 1);
+        monthEndD.setDate(monthEndD.getDate() - 1);
+        const monthEnd = monthEndD.toISOString().slice(0, 10);
+
+        // Remove the monthly file if our weekly range overlaps this month
+        if (monthStart <= endDate && monthEnd >= startDate) {
+          console.log(
+            `${C.yellow}Removing superseded monthly file: ${f}${C.reset}`
+          );
+          fs.unlinkSync(path.join(resultsDir, f));
+        }
+      }
+      return;
+    }
+
+    const fStart = m[1];
+    const fEnd = m[2];
+    const spanDays =
+      (new Date(fEnd + 'T00:00:00') - new Date(fStart + 'T00:00:00')) /
+      86400000;
+
+    // Only consider files that are roughly week-sized (≤ 14 days)
+    if (spanDays > 14) return;
+
+    // Check if this file's range overlaps any of our target weeks
+    const overlaps = weeks.some(w => fStart <= w.end && fEnd >= w.start);
+    if (overlaps) {
+      console.log(`${C.yellow}Removing stale overlapping file: ${f}${C.reset}`);
+      fs.unlinkSync(path.join(resultsDir, f));
+    }
+  });
+}
+
 // Check which weeks already have results
 const existingFiles = new Set(
   fs.existsSync(resultsDir)

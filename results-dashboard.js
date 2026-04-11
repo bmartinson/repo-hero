@@ -38,36 +38,84 @@ keys.forEach(key => {
   const startDate = entry?._report_info?.start_date || key.split('_')[0];
   const endDate =
     entry?._report_info?.end_date || key.split('_')[1] || startDate;
+  const spanDays =
+    (new Date(endDate + 'T00:00:00') - new Date(startDate + 'T00:00:00')) /
+    86400000;
 
-  allEntries.push({ key, entry, startDate, endDate });
+  allEntries.push({ key, entry, startDate, endDate, spanDays });
 });
 
-// Detect overlaps: if a period is fully covered by more granular periods, drop it
-function isFullyCovered(candidate, others) {
-  const cStart = new Date(candidate.startDate + 'T00:00:00');
-  const cEnd = new Date(candidate.endDate + 'T00:00:00');
-  const granular = others.filter(o => {
-    if (o === candidate) return false;
-    const oStart = new Date(o.startDate + 'T00:00:00');
-    const oEnd = new Date(o.endDate + 'T00:00:00');
-    // The other period must be fully inside the candidate and be shorter
-    return oStart >= cStart && oEnd <= cEnd && oEnd - oStart < cEnd - cStart;
+// ─── Overlap resolution ─────────────────────────────────────────────────────
+// Strategy: for any month where both monthly (>= 28 days) and weekly (< 14 days)
+// files exist, drop the monthly file. This prevents double-counting.
+// Then resolve any remaining partial overlaps between weekly files by keeping
+// the one that starts earlier (stable boundaries from a consistent run).
+
+function resolveOverlaps(entries) {
+  // 1. Find months that have both monthly and weekly data
+  const monthMap = {}; // "YYYY-MM" -> { monthly: [], weekly: [] }
+
+  entries.forEach(e => {
+    // All months this entry touches
+    const start = new Date(e.startDate + 'T00:00:00');
+    const end = new Date(e.endDate + 'T00:00:00');
+    let cursor = new Date(start);
+    while (cursor <= end) {
+      const ym =
+        cursor.getFullYear() +
+        '-' +
+        String(cursor.getMonth() + 1).padStart(2, '0');
+      if (!monthMap[ym]) monthMap[ym] = { monthly: [], weekly: [] };
+      if (e.spanDays >= 27) {
+        if (!monthMap[ym].monthly.includes(e)) monthMap[ym].monthly.push(e);
+      } else {
+        if (!monthMap[ym].weekly.includes(e)) monthMap[ym].weekly.push(e);
+      }
+      cursor.setMonth(cursor.getMonth() + 1);
+      cursor.setDate(1);
+    }
   });
-  if (granular.length === 0) return false;
-  // Check that the granular periods cover the full range without gaps
-  granular.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  let covered = new Date(granular[0].startDate + 'T00:00:00');
-  if (covered > cStart) return false;
-  for (const g of granular) {
-    const gs = new Date(g.startDate + 'T00:00:00');
-    const ge = new Date(g.endDate + 'T00:00:00');
-    if (gs > new Date(covered.getTime() + 86400000)) return false;
-    if (ge > covered) covered = ge;
+
+  // Collect monthly entries to drop
+  const dropSet = new Set();
+  for (const ym of Object.keys(monthMap)) {
+    const { monthly, weekly } = monthMap[ym];
+    if (monthly.length > 0 && weekly.length > 0) {
+      monthly.forEach(e => dropSet.add(e));
+    }
   }
-  return covered >= cEnd;
+
+  let result = entries.filter(e => !dropSet.has(e));
+
+  // 2. Remove remaining partial overlaps between weekly files.
+  // Sort by startDate, then by endDate. For overlapping pairs, keep the earlier one.
+  result.sort((a, b) => {
+    const cmp = a.startDate.localeCompare(b.startDate);
+    if (cmp !== 0) return cmp;
+    return a.endDate.localeCompare(b.endDate);
+  });
+
+  const final = [];
+  for (const entry of result) {
+    // Check if this entry overlaps with the last kept entry
+    if (final.length > 0) {
+      const prev = final[final.length - 1];
+      if (entry.startDate <= prev.endDate) {
+        // Overlap — keep the longer one (it covers more), or the earlier one if same span
+        if (entry.spanDays > prev.spanDays) {
+          final[final.length - 1] = entry;
+        }
+        // Otherwise skip this entry (keep prev)
+        continue;
+      }
+    }
+    final.push(entry);
+  }
+
+  return final;
 }
 
-const filteredEntries = allEntries.filter(e => !isFullyCovered(e, allEntries));
+const filteredEntries = resolveOverlaps(allEntries);
 
 filteredEntries.forEach(({ entry, startDate, endDate }) => {
   // Use start_end as unique period ID

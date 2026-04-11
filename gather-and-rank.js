@@ -6,6 +6,7 @@ const fetch = (...args) =>
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { calculateScore } = require('./score');
 
 // ----- nodejs helper variables -----
 _cReset = '\x1b[0m';
@@ -906,16 +907,7 @@ _processProjects().finally(() => {
       }
 
       // calculate the user score
-      _RESULTS.users[user].score =
-        (_RESULTS.users[user].loc > 1000000
-          ? _RESULTS.users[user].loc / 800
-          : _RESULTS.users[user].loc / 100) +
-        _RESULTS.users[user].filesTouched / 100 +
-        _RESULTS.users[user].pullRequests * 15 +
-        _RESULTS.users[user].commits / 100 +
-        (_RESULTS.users[user].commits / _RESULTS.commitsPerPullRequest) * 10 +
-        // (_RESULTS.users[user].pullRequests ? _RESULTS.users[user].commits / _RESULTS.users[user].pullRequests / 10 : 0) + // account for divide by zero
-        _RESULTS.users[user].reviews * 10;
+      _RESULTS.users[user].score = calculateScore(_RESULTS.users[user]);
 
       // make sure that the score is defined
       if (!_RESULTS.users[user].score) {
@@ -934,8 +926,6 @@ _processProjects().finally(() => {
     if (!_RESULTS.teamScore) {
       _RESULTS.teamScore = 0;
     }
-
-    _RESULTS.teamScore /= _RESULTS.activeUsers;
 
     // Convert the _RESULTS.users object to an array of user objects
     const usersArray = Object.values(_RESULTS.users);
@@ -961,11 +951,19 @@ _processProjects().finally(() => {
           if (usersArray[index]?.score > 0) {
             // if the ignored user had a score, it was previously counted as active, so reduce
             _RESULTS.activeUsers--;
+            _RESULTS.teamScore -= usersArray[index].score;
           }
 
           usersArray.splice(index, 1);
         }
       });
+    }
+
+    // calculate the team score average from the remaining active users
+    if (_RESULTS.activeUsers > 0) {
+      _RESULTS.teamScore /= _RESULTS.activeUsers;
+    } else {
+      _RESULTS.teamScore = 0;
     }
 
     // Assign the sorted object back to _RESULTS.users

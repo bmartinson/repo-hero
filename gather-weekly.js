@@ -37,6 +37,13 @@ const endIdx = args.indexOf('--end');
 if (startIdx !== -1 && args[startIdx + 1]) startDate = args[startIdx + 1];
 if (endIdx !== -1 && args[endIdx + 1]) endDate = args[endIdx + 1];
 
+// Cap end date at today so we never query future data
+const today = new Date().toISOString().slice(0, 10);
+if (endDate > today) {
+  console.log(`End date ${endDate} is in the future — capping at ${today}`);
+  endDate = today;
+}
+
 if (!startDate || !endDate) {
   console.error(`${C.red}Missing start or end date.${C.reset}`);
   process.exit(1);

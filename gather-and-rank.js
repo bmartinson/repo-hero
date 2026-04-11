@@ -477,6 +477,13 @@ function _configureApp() {
     _END_DATE = args[endIdx + 1];
   }
 
+  // Cap end date at today so we never query future data
+  const today = new Date().toISOString().slice(0, 10);
+  if (_END_DATE > today) {
+    console.log(`End date ${_END_DATE} is in the future — capping at ${today}`);
+    _END_DATE = today;
+  }
+
   if (!_RESULTS) {
     _RESULTS = {};
   }

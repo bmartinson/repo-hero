@@ -136,13 +136,17 @@ function getAliasForUser(user) {
  */
 async function executeCommand(command, directory) {
   return new Promise((resolve, reject) => {
-    exec(command, { cwd: directory }, (error, stdout) => {
-      if (error) {
-        reject(`Error executing command: ${error.message}`);
-        return;
+    exec(
+      command,
+      { cwd: directory, maxBuffer: 50 * 1024 * 1024 },
+      (error, stdout) => {
+        if (error) {
+          reject(`Error executing command: ${error.message}`);
+          return;
+        }
+        resolve(stdout);
       }
-      resolve(stdout);
-    });
+    );
   });
 }
 
@@ -636,7 +640,7 @@ function _processProjects() {
                             `Error processing user commits for ${project}:`,
                             error
                           );
-                          reject(error);
+                          resolve();
                         });
                     })
                     .catch(error => {
@@ -644,7 +648,7 @@ function _processProjects() {
                         `Error fetching users for ${project}:`,
                         error
                       );
-                      reject(error);
+                      resolve();
                     });
                 })
                 .catch(error => {
@@ -652,12 +656,12 @@ function _processProjects() {
                     `Error counting commits for ${project}:`,
                     error
                   );
-                  reject(error);
+                  resolve();
                 });
             })
             .catch(error => {
               console.error(`Error discovering ${project}:`, error);
-              reject(error);
+              resolve();
             });
         })
       );
@@ -676,7 +680,11 @@ function _processProjects() {
               contResolve();
             })
             .catch(error => {
-              contReject();
+              console.error(
+                `Error fetching contributors for ${project}:`,
+                error
+              );
+              contResolve();
             });
         })
       );
@@ -691,7 +699,11 @@ function _processProjects() {
               prResolve();
             })
             .catch(error => {
-              prReject();
+              console.error(
+                `Error fetching pull requests for ${project}:`,
+                error
+              );
+              prResolve();
             });
         })
       );
@@ -876,7 +888,7 @@ function processUserCommits(packageName) {
       })
       .catch(error => {
         console.error(`Error counting commits for ${packageName}:`, error);
-        reject();
+        resolve(); // gracefully continue instead of crashing the pipeline
       });
   });
 }

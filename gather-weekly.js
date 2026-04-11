@@ -60,16 +60,27 @@ function toISO(d) {
 
 function generateWeeks(start, end) {
   const weeks = [];
-  let cursor = toDate(start);
+  const startD = toDate(start);
   const endD = toDate(end);
 
+  // Anchor to the 1st of the start month so week boundaries are always
+  // consistent regardless of which sub-range is requested.
+  let cursor = new Date(startD.getFullYear(), startD.getMonth(), 1);
+
   while (cursor <= endD) {
-    // Week ends 6 days from cursor, or at the overall end date
     const weekEnd = new Date(cursor);
     weekEnd.setDate(weekEnd.getDate() + 6);
-    const cappedEnd = weekEnd > endD ? endD : weekEnd;
 
-    weeks.push({ start: toISO(cursor), end: toISO(cappedEnd) });
+    // Cap at end of the current month so weeks never cross month boundaries
+    const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+    const cappedEnd = weekEnd > monthEnd ? monthEnd : weekEnd;
+
+    // Only include this week if it overlaps the requested range
+    if (cappedEnd >= startD && cursor <= endD) {
+      const wStart = cursor < startD ? startD : cursor;
+      const wEnd = cappedEnd > endD ? endD : cappedEnd;
+      weeks.push({ start: toISO(wStart), end: toISO(wEnd) });
+    }
 
     // Move cursor to next day after this week
     cursor = new Date(cappedEnd);

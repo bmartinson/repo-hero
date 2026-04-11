@@ -8,10 +8,10 @@
 const WEIGHTS = {
   loc: 1 / 10000,
   filesTouched: 1 / 10000,
-  pullRequests: 15,
-  predictedPullRequests: 15,
+  pullRequests: 14,
+  predictedPullRequests: 14,
   commits: 1 / 100,
-  reviews: 15,
+  reviews: 20,
 };
 
 /**

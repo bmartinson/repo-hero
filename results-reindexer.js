@@ -20,6 +20,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { calculateScore } = require('./score');
 
 // ─── Terminal colors ────────────────────────────────────────────────────────
 
@@ -75,29 +76,6 @@ function getAliasForUser(user) {
 
 const ignoreUsers = (config.ignoreUsers || []).map(u => u.toLowerCase());
 
-// ─── Score calculation (mirrors gather-and-rank.js) ─────────────────────────
-
-function calculateScore(user, commitsPerPR) {
-  const loc = user.loc || 0;
-  const filesTouched = user.filesTouched || 0;
-  const pullRequests = user.pullRequests || 0;
-  const commits = user.commits || 0;
-  const reviews = user.reviews || 0;
-
-  const locScore = loc > 1000000 ? loc / 800 : loc / 100;
-  const prRatio = commitsPerPR > 0 ? (commits / commitsPerPR) * 10 : 0;
-
-  const score =
-    locScore +
-    filesTouched / 100 +
-    pullRequests * 15 +
-    commits / 100 +
-    prRatio +
-    reviews * 10;
-
-  return score || 0;
-}
-
 // ─── Process files ──────────────────────────────────────────────────────────
 
 const files = fs
@@ -137,7 +115,6 @@ files.forEach(file => {
     return;
   }
 
-  const commitsPerPR = data.commitsPerPullRequest || 0;
   let fileMerges = 0;
   let fileRenames = 0;
   let fileIgnored = 0;
@@ -180,7 +157,7 @@ files.forEach(file => {
   // Step 2: Re-calculate scores
   Object.values(merged).forEach(user => {
     delete user._seen;
-    user.score = calculateScore(user, commitsPerPR);
+    user.score = calculateScore(user);
   });
 
   // Step 3: Sort by score descending

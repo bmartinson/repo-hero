@@ -55,6 +55,7 @@ months.forEach(month => {
       score: user.score || 0,
       commits: user.commits || 0,
       pullRequests: user.pullRequests || 0,
+      predictedPullRequests: user.predictedPullRequests || 0,
       reviews: user.reviews || 0,
       loc: user.loc || 0,
       filesTouched: user.filesTouched || 0,
@@ -700,7 +701,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   const ALL_MONTHS = DATA.months;
   const METRICS = [
     { key: 'score',        label: 'Score',         color: '#00ddcc', format: v => v.toFixed(0) },
-    { key: 'pullRequests', label: 'Pull Requests',  color: '#00aaff', format: v => v.toFixed(0) },
+    { key: 'effectivePRs', label: 'Pull Requests',  color: '#00aaff', format: v => v.toFixed(0), dataKey: 'effectivePR' },
     { key: 'reviews',      label: 'Reviews',        color: '#cc66ff', format: v => v.toFixed(0) },
     { key: 'commits',      label: 'Commits',        color: '#22cc44', format: v => v.toFixed(0) },
     { key: 'loc',          label: 'Lines of Code',  color: '#ff8844', format: v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0) },
@@ -725,14 +726,16 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   function getUserTotals(userName, months) {
     const ud = DATA.users[userName];
-    if (!ud) return { score:0, commits:0, pullRequests:0, reviews:0, loc:0, filesTouched:0 };
-    const totals = { score:0, commits:0, pullRequests:0, reviews:0, loc:0, filesTouched:0 };
+    if (!ud) return { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, reviews:0, loc:0, filesTouched:0 };
+    const totals = { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, reviews:0, loc:0, filesTouched:0 };
     months.forEach(m => {
       const d = ud.data[m];
       if (d) {
         totals.score += d.score;
         totals.commits += d.commits;
         totals.pullRequests += d.pullRequests;
+        totals.predictedPullRequests += d.predictedPullRequests || 0;
+        totals.effectivePRs += d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
         totals.reviews += d.reviews;
         totals.loc += d.loc;
         totals.filesTouched += d.filesTouched;
@@ -884,7 +887,12 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
         const ud = DATA.users[user.name];
         return {
           label: user.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '),
-          data: months.map(m => ud.data[m] ? ud.data[m][metric.key] : 0),
+          data: months.map(m => {
+            const d = ud.data[m];
+            if (!d) return 0;
+            if (metric.key === 'effectivePRs') return d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
+            return d[metric.key] || 0;
+          }),
           borderColor: CHART_COLORS[ui % CHART_COLORS.length],
           backgroundColor: CHART_COLORS[ui % CHART_COLORS.length] + '15',
           fill: false
@@ -993,7 +1001,12 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     METRICS.forEach(m => {
       const canvas = document.getElementById('pchart-' + m.key);
-      const data = months.map(mo => ud && ud.data[mo] ? ud.data[mo][m.key] : 0);
+      const data = months.map(mo => {
+        const d = ud && ud.data[mo];
+        if (!d) return 0;
+        if (m.key === 'effectivePRs') return d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
+        return d[m.key] || 0;
+      });
       profileCharts[m.key] = new Chart(canvas, makeChartConfig(
         months,
         [{

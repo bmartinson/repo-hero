@@ -38,6 +38,11 @@ console.log(
 console.log(`    \t\t  --start YYYY-MM-DD  (override start date)`);
 console.log(`    \t\t  --end   YYYY-MM-DD  (override end date)`);
 console.log(
+  `    ${_cFgGreen}gather-weekly${_cReset}\t(split date range into weeks and gather each)`
+);
+console.log(`    \t\t  --start YYYY-MM-DD  (override start date)`);
+console.log(`    \t\t  --end   YYYY-MM-DD  (override end date)`);
+console.log(
   `    ${_cFgGreen}combine${_cReset}\t(re-generate combined results)`
 );
 console.log(`    ${_cFgGreen}chart${_cReset}\t(re-generate csv files)`);

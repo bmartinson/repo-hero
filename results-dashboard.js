@@ -29,6 +29,8 @@ const dashboardData = {
   team: [],
 };
 
+// First pass: collect all periods with their date ranges
+const allEntries = [];
 keys.forEach(key => {
   const entry = raw[key];
   if (!entry || !entry.users) return;
@@ -37,8 +39,39 @@ keys.forEach(key => {
   const endDate =
     entry?._report_info?.end_date || key.split('_')[1] || startDate;
 
-  // Use start_date as the unique period ID
-  const periodId = startDate;
+  allEntries.push({ key, entry, startDate, endDate });
+});
+
+// Detect overlaps: if a period is fully covered by more granular periods, drop it
+function isFullyCovered(candidate, others) {
+  const cStart = new Date(candidate.startDate + 'T00:00:00');
+  const cEnd = new Date(candidate.endDate + 'T00:00:00');
+  const granular = others.filter(o => {
+    if (o === candidate) return false;
+    const oStart = new Date(o.startDate + 'T00:00:00');
+    const oEnd = new Date(o.endDate + 'T00:00:00');
+    // The other period must be fully inside the candidate and be shorter
+    return oStart >= cStart && oEnd <= cEnd && oEnd - oStart < cEnd - cStart;
+  });
+  if (granular.length === 0) return false;
+  // Check that the granular periods cover the full range without gaps
+  granular.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  let covered = new Date(granular[0].startDate + 'T00:00:00');
+  if (covered > cStart) return false;
+  for (const g of granular) {
+    const gs = new Date(g.startDate + 'T00:00:00');
+    const ge = new Date(g.endDate + 'T00:00:00');
+    if (gs > new Date(covered.getTime() + 86400000)) return false;
+    if (ge > covered) covered = ge;
+  }
+  return covered >= cEnd;
+}
+
+const filteredEntries = allEntries.filter(e => !isFullyCovered(e, allEntries));
+
+filteredEntries.forEach(({ entry, startDate, endDate }) => {
+  // Use start_end as unique period ID
+  const periodId = startDate + '_' + endDate;
 
   dashboardData.periods.push({
     id: periodId,

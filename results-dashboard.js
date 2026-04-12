@@ -880,6 +880,13 @@ header {
   padding: 12px;
 }
 
+.repo-pie-box.repo-pie-score {
+  grid-column: 1 / -1;
+  max-width: 380px;
+  margin: 0 auto;
+  width: 100%;
+}
+
 .repo-pie-label {
   text-transform: uppercase;
   font-size: 10px;
@@ -1367,6 +1374,17 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   ];
 
   const CHART_COLORS = ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff'];
+
+  const SCORE_WEIGHTS = ${JSON.stringify(WEIGHTS)};
+
+  function repoScore(rb) {
+    const prs = rb.pullRequests || 0;
+    return (rb.loc || 0) * SCORE_WEIGHTS.loc
+      + (rb.filesTouched || 0) * SCORE_WEIGHTS.filesTouched
+      + prs * SCORE_WEIGHTS.pullRequests
+      + (rb.commits || 0) * SCORE_WEIGHTS.commits
+      + (rb.reviews || 0) * SCORE_WEIGHTS.reviews;
+  }
 
   let currentScope = 7; // days (0 = all)
   let currentSort = 'score';
@@ -2107,6 +2125,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       html += '<div class="profile-repo-breakdown">';
       html += '<div class="pchart-title" style="text-align:center;margin-bottom:8px;">REPOSITORY BREAKDOWN</div>';
       html += '<div class="repo-pie-grid">';
+      html += '<div class="repo-pie-box repo-pie-score"><div class="repo-pie-label">Score</div><canvas id="pie-score"></canvas></div>';
       html += '<div class="repo-pie-box"><div class="repo-pie-label">Pull Requests</div><canvas id="pie-prs"></canvas></div>';
       html += '<div class="repo-pie-box"><div class="repo-pie-label">Reviews</div><canvas id="pie-reviews"></canvas></div>';
       html += '<div class="repo-pie-box"><div class="repo-pie-label">Commits</div><canvas id="pie-commits"></canvas></div>';
@@ -2146,6 +2165,57 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       const PIE_COLORS = ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff','#ff9999','#66ffcc','#bb88ff','#ffcc00','#44ddff','#ff6666','#99ff99','#dd88ff','#ffdd44','#88ccff'];
       const shortName = (r) => r.replace(/^@[^/]+\\//, '');
 
+      const pieOpts = (fmt) => ({
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#b0b8c4', font: { family: '\\'JetBrains Mono\\',monospace', size: 10 }, padding: 8, boxWidth: 12 }
+          },
+          tooltip: {
+            backgroundColor: '#161b22',
+            titleColor: '#e6edf3',
+            bodyColor: '#b0b8c4',
+            borderColor: '#30363d',
+            borderWidth: 1,
+            callbacks: {
+              label: function(ctx) {
+                const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                return ' ' + ctx.label + ': ' + (fmt ? fmt(ctx.raw) : ctx.raw) + ' (' + pct + '%)';
+              }
+            }
+          }
+        }
+      });
+
+      // Score breakdown by repo
+      const scoreCanvas = document.getElementById('pie-score');
+      if (scoreCanvas) {
+        const repoScores = {};
+        activeRepos.forEach(r => { repoScores[r] = repoScore(repoTotals[r]); });
+        const scoredRepos = activeRepos.filter(r => repoScores[r] > 0);
+        if (scoredRepos.length > 0) {
+          profileCharts['repo-score'] = new Chart(scoreCanvas, {
+            type: 'doughnut',
+            data: {
+              labels: scoredRepos.map(shortName),
+              datasets: [{
+                data: scoredRepos.map(r => parseFloat(repoScores[r].toFixed(1))),
+                backgroundColor: scoredRepos.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]),
+                borderColor: '#0d1117',
+                borderWidth: 2
+              }]
+            },
+            options: pieOpts(v => v.toFixed(1))
+          });
+        } else {
+          scoreCanvas.parentElement.style.display = 'none';
+        }
+      }
+
+      // Metric breakdown pies
       [
         { id: 'pie-prs', metric: 'pullRequests' },
         { id: 'pie-reviews', metric: 'reviews' },
@@ -2169,30 +2239,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
               borderWidth: 2
             }]
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-              legend: {
-                position: 'bottom',
-                labels: { color: '#b0b8c4', font: { family: '\\'JetBrains Mono\\',monospace', size: 10 }, padding: 8, boxWidth: 12 }
-              },
-              tooltip: {
-                backgroundColor: '#161b22',
-                titleColor: '#e6edf3',
-                bodyColor: '#b0b8c4',
-                borderColor: '#30363d',
-                borderWidth: 1,
-                callbacks: {
-                  label: function(ctx) {
-                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
-                    const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-                    return ' ' + ctx.label + ': ' + ctx.raw + ' (' + pct + '%)';
-                  }
-                }
-              }
-            }
-          }
+          options: pieOpts()
         });
       });
     }

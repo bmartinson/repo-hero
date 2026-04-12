@@ -554,8 +554,45 @@ header {
   font-size: 0.75em;
   margin-left: 1px;
   filter: drop-shadow(0 0 4px rgba(255, 100, 0, 0.6));
-  cursor: help;
+  cursor: pointer;
   vertical-align: baseline;
+  position: relative;
+}
+
+.fire-popup {
+  position: fixed;
+  z-index: 2000;
+  background: var(--bg);
+  border: 1px solid var(--fg-dim);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--fg);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  max-width: 260px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  line-height: 1.5;
+}
+
+.fire-popup.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.fire-popup-title {
+  color: var(--fg-cyan);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.fire-popup-value {
+  color: var(--fg-bright);
+  font-weight: 700;
 }
 
 .user-stat .stat-label {
@@ -1269,6 +1306,11 @@ body::after {
   </div>
 </footer>
 
+<div id="fire-popup" class="fire-popup">
+  <div class="fire-popup-title">🔥 OUTLIER DETECTED</div>
+  <div id="fire-popup-body"></div>
+</div>
+
 <script>
 // ─── Data ───────────────────────────────────────────────────────────────────
 window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
@@ -1678,7 +1720,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       const displayName = u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
       const rankColors = ['rgba(255,170,0,0.15);color:#ffaa00','rgba(200,200,200,0.1);color:#ccc','rgba(205,127,50,0.12);color:#cd7f32'];
       const rankStyle = i < 3 ? 'background:' + rankColors[i] : 'background:rgba(85,85,85,0.15);color:var(--fg-dim)';
-      const fire = (key) => o[key] ? '<span class="fire-badge" title="+' + o[key].zScore + 'σ above avg">🔥</span>' : '';
+      const fire = (key) => o[key] ? '<span class="fire-badge" onclick="event.stopPropagation();showFirePopup(event,\\'' + key + '\\',+' + o[key].zScore + ')">🔥</span>' : '';
       return '<div class="user-card" onclick="openProfile(\\'' + u.name.replace(/'/g, "\\\\'") + '\\')">'
         + '<div class="user-card-header">'
           + '<span class="user-card-name">' + displayName + '</span>'
@@ -1895,6 +1937,36 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       ).join('');
   }
 
+  // ─── Fire Badge Popup ─────────────────────────────────────────────────
+
+  const METRIC_LABELS = {};
+  METRICS.forEach(m => { METRIC_LABELS[m.key] = m.label; });
+
+  window.showFirePopup = function(e, metricKey, zScore) {
+    const popup = document.getElementById('fire-popup');
+    const body = document.getElementById('fire-popup-body');
+    const label = METRIC_LABELS[metricKey] || metricKey;
+    body.innerHTML = 'This contributor\\'s <span class="fire-popup-value">' + label + '</span> is '
+      + '<span class="fire-popup-value">+' + zScore + 'σ</span> above the team average — '
+      + 'placing them in the top tier for this metric during the selected time range.';
+    popup.classList.add('visible');
+
+    const rect = e.target.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - 130;
+    let top = rect.bottom + 8;
+    if (left < 8) left = 8;
+    if (left + 260 > window.innerWidth) left = window.innerWidth - 268;
+    if (top + 100 > window.innerHeight) top = rect.top - 8 - popup.offsetHeight;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+  };
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.fire-badge')) {
+      document.getElementById('fire-popup').classList.remove('visible');
+    }
+  });
+
   // ─── User Profile ──────────────────────────────────────────────────────
 
   window.openProfile = function(userName) {
@@ -1925,7 +1997,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     html += '<div class="profile-stats">';
     METRICS.forEach(m => {
-      const fire = userOutliers[m.key] ? '<span class="fire-badge" title="+' + userOutliers[m.key].zScore + 'σ above avg">🔥</span>' : '';
+      const fire = userOutliers[m.key] ? '<span class="fire-badge" onclick="event.stopPropagation();showFirePopup(event,\\'' + m.key + '\\',' + userOutliers[m.key].zScore + ')">🔥</span>' : '';
       html += '<div class="profile-stat">'
         + '<div class="pstat-value">' + m.format(totals[m.key]) + fire + '</div>'
         + '<div class="pstat-label">' + m.label + '</div>'

@@ -51,24 +51,24 @@ Create a `config.json` in the project root (it is gitignored). All top-level pro
 ```jsonc
 {
   "tokens": {
-    "github": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxx" // GitHub personal access token
+    "github": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxx", // GitHub personal access token
   },
-  "directory": "/Users/you/Development",        // parent directory containing .git repos
-  "startDate": "2024-01-01",                    // analysis start (YYYY-MM-DD)
-  "endDate": "2025-01-01",                      // analysis end (YYYY-MM-DD, capped at today)
-  "commitsPerPullRequest": 12.5,                // optional: fallback ratio for PR prediction
+  "directory": "/Users/you/Development", // parent directory containing .git repos
+  "startDate": "2024-01-01", // analysis start (YYYY-MM-DD)
+  "endDate": "2025-01-01", // analysis end (YYYY-MM-DD, capped at today)
+  "commitsPerPullRequest": 12.5, // optional: fallback ratio for PR prediction
   "projects": [
-    "@yourorg/repo-one",                        // owner/repo — include the @ for orgs
-    "@yourorg/repo-two"
+    "@yourorg/repo-one", // owner/repo — include the @ for orgs
+    "@yourorg/repo-two",
   ],
   "aliases": {
-    "Jane Smith": ["jsmith", "jane.smith"],     // consolidate git identities
-    "Brian Martinson": ["bmartinson", "bmartinson13"]
+    "Jane Smith": ["jsmith", "jane.smith"], // consolidate git identities
+    "Brian Martinson": ["bmartinson", "bmartinson13"],
   },
   "ignoreUsers": [
-    "DevOps",                                   // names to exclude from results
-    "dependabot[bot]"
-  ]
+    "DevOps", // names to exclude from results
+    "dependabot[bot]",
+  ],
 }
 ```
 
@@ -86,18 +86,18 @@ npm run config 2024-06
 
 ## Commands
 
-| Command | Description |
-|---|---|
-| `npm start` | **Full pipeline** — gather weekly data → enrich → combine → charts → dashboard |
-| `npm run gather` | Gather data for a single date range (one output file) |
-| `npm run gather-weekly` | Split the configured date range into weeks and gather each |
-| `npm run enrich` | Enrich historical data with predicted PR counts |
-| `npm run combine` | Merge all `.results_history/*.json` into `combined_results.json` |
-| `npm run chart` | Regenerate CSV files and dashboard from combined results |
-| `npm run dashboard` | Regenerate only the HTML dashboard |
-| `npm run reindex` | Re-apply alias and ignore-user changes to all result files |
-| `npm run config <date>` | Quick-reconfigure `config.json` for a year or month |
-| `npm run help` | Show the command reference in the terminal |
+| Command                 | Description                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `npm start`             | **Full pipeline** — gather weekly data → enrich → combine → charts → dashboard |
+| `npm run gather`        | Gather data for a single date range (one output file)                          |
+| `npm run gather-weekly` | Split the configured date range into weeks and gather each                     |
+| `npm run enrich`        | Enrich historical data with predicted PR counts                                |
+| `npm run combine`       | Merge all `.results_history/*.json` into `combined_results.json`               |
+| `npm run chart`         | Regenerate CSV files and dashboard from combined results                       |
+| `npm run dashboard`     | Regenerate only the HTML dashboard                                             |
+| `npm run reindex`       | Re-apply alias and ignore-user changes to all result files                     |
+| `npm run config <date>` | Quick-reconfigure `config.json` for a year or month                            |
+| `npm run help`          | Show the command reference in the terminal                                     |
 
 ### CLI Overrides
 
@@ -146,13 +146,13 @@ npm start
 
 Scores are calculated per user per period using the weights defined in [`score.js`](score.js):
 
-| Metric | Weight | Notes |
-|---|---|---|
-| Pull Requests | × 15 | Uses real PRs; falls back to predicted PRs if zero |
-| Reviews | × 15 | Code reviews authored |
-| Commits | × 0.01 | Raw commit count |
-| Lines of Code | × 0.0001 | Net lines changed |
-| Files Touched | × 0.0001 | Unique files modified |
+| Metric        | Weight   | Notes                                              |
+| ------------- | -------- | -------------------------------------------------- |
+| Pull Requests | × 15     | Uses real PRs; falls back to predicted PRs if zero |
+| Reviews       | × 15     | Code reviews authored                              |
+| Commits       | × 0.01   | Raw commit count                                   |
+| Lines of Code | × 0.0001 | Net lines changed                                  |
+| Files Touched | × 0.0001 | Unique files modified                              |
 
 The team score is the average of all non-ignored users' scores for a given period.
 

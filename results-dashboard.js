@@ -1113,11 +1113,33 @@ body::after {
         of their activity metrics. The formula is:
       </p>
       <div class="meth-formula">
-        score = ${Object.entries(WEIGHTS).map(([key, w]) => {
-          const label = key === 'loc' ? 'LOC' : key === 'filesTouched' ? 'Files Touched' : key === 'pullRequests' ? 'Pull Requests' : key === 'predictedPullRequests' ? 'Predicted PRs' : key === 'commits' ? 'Commits' : key === 'reviews' ? 'Reviews' : key;
-          if (w >= 1) return label + ' × ' + w;
-          return label + ' × ' + w.toFixed(w < 0.001 ? 4 : 4).replace(/0+$/, '').replace(/\\.$/, '');
-        }).join(' + ')}
+        score = ${Object.entries(WEIGHTS)
+          .map(([key, w]) => {
+            const label =
+              key === 'loc'
+                ? 'LOC'
+                : key === 'filesTouched'
+                  ? 'Files Touched'
+                  : key === 'pullRequests'
+                    ? 'Pull Requests'
+                    : key === 'predictedPullRequests'
+                      ? 'Predicted PRs'
+                      : key === 'commits'
+                        ? 'Commits'
+                        : key === 'reviews'
+                          ? 'Reviews'
+                          : key;
+            if (w >= 1) return label + ' × ' + w;
+            return (
+              label +
+              ' × ' +
+              w
+                .toFixed(w < 0.001 ? 4 : 4)
+                .replace(/0+$/, '')
+                .replace(/\\.$/, '')
+            );
+          })
+          .join(' + ')}
       </div>
       <p class="meth-text">
         When a contributor has real pull request data, their <em>Pull Requests</em> count is used.
@@ -1255,7 +1277,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   'use strict';
 
   const DATA = window.__REPO_HERO_DATA__;
-  const GENERATED_AT = '${new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}';
+  const GENERATED_AT = '${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}';
   const ALL_PERIODS = DATA.periods; // [{id, startDate, endDate}, ...]
   const ALL_PERIOD_IDS = ALL_PERIODS.map(p => p.id);
   const METRICS = [

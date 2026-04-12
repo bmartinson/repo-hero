@@ -152,6 +152,7 @@ filteredEntries.forEach(({ entry, startDate, endDate }) => {
       reviews: user.reviews || 0,
       loc: user.loc || 0,
       filesTouched: user.filesTouched || 0,
+      repoBreakdown: user.repoBreakdown || {},
     };
   });
 });
@@ -554,8 +555,45 @@ header {
   font-size: 0.75em;
   margin-left: 1px;
   filter: drop-shadow(0 0 4px rgba(255, 100, 0, 0.6));
-  cursor: help;
+  cursor: pointer;
   vertical-align: baseline;
+  position: relative;
+}
+
+.fire-popup {
+  position: fixed;
+  z-index: 2000;
+  background: var(--bg);
+  border: 1px solid var(--fg-dim);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--fg);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  max-width: 260px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  line-height: 1.5;
+}
+
+.fire-popup.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.fire-popup-title {
+  color: var(--fg-cyan);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.fire-popup-value {
+  color: var(--fg-bright);
+  font-weight: 700;
 }
 
 .user-stat .stat-label {
@@ -634,7 +672,7 @@ header {
   backdrop-filter: blur(4px);
 }
 
-.overlay.visible { display: flex; justify-content: center; padding: 40px 20px; }
+.overlay.visible { display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px; }
 
 .profile-panel {
   background: var(--bg);
@@ -644,6 +682,8 @@ header {
   width: 100%;
   padding: 32px;
   position: relative;
+  margin-bottom: 40px;
+  flex-shrink: 0;
 }
 
 .profile-close {
@@ -819,6 +859,40 @@ header {
   border-top: 1px solid var(--fg-dim);
   color: var(--fg-bright);
   font-weight: 700;
+}
+
+/* ─── Repository Breakdown Pie Charts ────────────────────────────────────── */
+
+.profile-repo-breakdown {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.repo-pie-grid {
+  display: flex;
+  justify-content: center;
+}
+
+.repo-pie-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.repo-pie-box.repo-pie-score {
+  max-width: 380px;
+  width: 100%;
+}
+
+.repo-pie-label {
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--fg-dim);
+  text-align: center;
+  margin-bottom: 8px;
 }
 
 /* ─── Methodology Page ───────────────────────────────────────────────────── */
@@ -1269,6 +1343,11 @@ body::after {
   </div>
 </footer>
 
+<div id="fire-popup" class="fire-popup">
+  <div class="fire-popup-title">🔥 OUTLIER DETECTED</div>
+  <div id="fire-popup-body"></div>
+</div>
+
 <script>
 // ─── Data ───────────────────────────────────────────────────────────────────
 window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
@@ -1290,6 +1369,17 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   ];
 
   const CHART_COLORS = ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff'];
+
+  const SCORE_WEIGHTS = ${JSON.stringify(WEIGHTS)};
+
+  function repoScore(rb) {
+    const prs = rb.pullRequests || 0;
+    return (rb.loc || 0) * SCORE_WEIGHTS.loc
+      + (rb.filesTouched || 0) * SCORE_WEIGHTS.filesTouched
+      + prs * SCORE_WEIGHTS.pullRequests
+      + (rb.commits || 0) * SCORE_WEIGHTS.commits
+      + (rb.reviews || 0) * SCORE_WEIGHTS.reviews;
+  }
 
   let currentScope = 7; // days (0 = all)
   let currentSort = 'score';
@@ -1678,7 +1768,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       const displayName = u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
       const rankColors = ['rgba(255,170,0,0.15);color:#ffaa00','rgba(200,200,200,0.1);color:#ccc','rgba(205,127,50,0.12);color:#cd7f32'];
       const rankStyle = i < 3 ? 'background:' + rankColors[i] : 'background:rgba(85,85,85,0.15);color:var(--fg-dim)';
-      const fire = (key) => o[key] ? '<span class="fire-badge" title="+' + o[key].zScore + 'σ above avg">🔥</span>' : '';
+      const fire = (key) => o[key] ? '<span class="fire-badge" onclick="event.stopPropagation();showFirePopup(event,\\'' + key + '\\',+' + o[key].zScore + ')">🔥</span>' : '';
       return '<div class="user-card" onclick="openProfile(\\'' + u.name.replace(/'/g, "\\\\'") + '\\')">'
         + '<div class="user-card-header">'
           + '<span class="user-card-name">' + displayName + '</span>'
@@ -1720,72 +1810,136 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       }))
       .sort((a, b) => a.score - b.score);
 
-    const bandColors = {
-      'below-2':  { bg: 'rgba(255, 51, 51, 0.5)',  border: '#ff3333', label: '< −2σ' },
-      'below-1':  { bg: 'rgba(255, 136, 68, 0.5)',  border: '#ff8844', label: '−2σ to −1σ' },
-      'within':   { bg: 'rgba(0, 170, 255, 0.5)',   border: '#00aaff', label: '−1σ to +1σ' },
-      'above-1':  { bg: 'rgba(0, 221, 204, 0.5)',   border: '#00ddcc', label: '+1σ to +2σ' },
-      'above-2':  { bg: 'rgba(204, 102, 255, 0.5)', border: '#cc66ff', label: '> +2σ' },
-    };
-
-    function getBand(z) {
-      if (z <= -2) return 'below-2';
-      if (z <= -1) return 'below-1';
-      if (z <= 1)  return 'within';
-      if (z <= 2)  return 'above-1';
-      return 'above-2';
+    // Gaussian PDF
+    function gaussPDF(x) {
+      if (stdDev === 0) return 0;
+      const exp = -0.5 * ((x - mean) / stdDev) ** 2;
+      return (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.pow(Math.E, exp);
     }
 
-    const labels = sorted.map(u => u.name);
-    const data = sorted.map(u => u.score);
-    const bgColors = sorted.map(u => bandColors[getBand(u.z)].bg);
-    const borderColors = sorted.map(u => bandColors[getBand(u.z)].border);
+    // Generate smooth bell curve points from μ-3.5σ to μ+3.5σ
+    const xMin = Math.max(0, mean - 3.5 * stdDev);
+    const xMax = mean + 3.5 * stdDev;
+    const steps = 200;
+    const curvePoints = [];
+    for (let i = 0; i <= steps; i++) {
+      const x = xMin + (xMax - xMin) * (i / steps);
+      curvePoints.push({ x, y: gaussPDF(x) });
+    }
 
+    // σ band color mapping
+    const bandDefs = [
+      { min: -Infinity, max: -2, bg: 'rgba(255, 51, 51, 0.12)',  border: '#ff3333', label: '< −2σ' },
+      { min: -2,        max: -1, bg: 'rgba(255, 136, 68, 0.15)', border: '#ff8844', label: '−2σ to −1σ' },
+      { min: -1,        max:  1, bg: 'rgba(0, 170, 255, 0.15)',  border: '#00aaff', label: '−1σ to +1σ' },
+      { min:  1,        max:  2, bg: 'rgba(0, 221, 204, 0.15)',  border: '#00ddcc', label: '+1σ to +2σ' },
+      { min:  2,        max: Infinity, bg: 'rgba(204, 102, 255, 0.15)', border: '#cc66ff', label: '> +2σ' },
+    ];
+
+    function getBandForZ(z) {
+      return bandDefs.find(b => z > b.min && z <= b.max) || bandDefs[2];
+    }
+
+    // Create filled region datasets for each σ band
+    const bandDatasets = bandDefs.map(band => {
+      const lo = band.min === -Infinity ? xMin : Math.max(xMin, mean + band.min * stdDev);
+      const hi = band.max ===  Infinity ? xMax : Math.min(xMax, mean + band.max * stdDev);
+      const pts = curvePoints
+        .filter(p => p.x >= lo - 0.01 && p.x <= hi + 0.01)
+        .map(p => ({ x: p.x, y: p.y }));
+      // Add boundary points at y=0 for clean fill
+      if (pts.length > 0) {
+        pts.unshift({ x: pts[0].x, y: 0 });
+        pts.push({ x: pts[pts.length - 1].x, y: 0 });
+      }
+      return {
+        type: 'line',
+        data: pts,
+        backgroundColor: band.bg,
+        borderColor: 'transparent',
+        borderWidth: 0,
+        fill: true,
+        pointRadius: 0,
+        tension: 0.4,
+        order: 3,
+      };
+    });
+
+    // Bell curve line
+    const curveDataset = {
+      type: 'line',
+      data: curvePoints,
+      borderColor: 'rgba(255, 255, 255, 0.5)',
+      borderWidth: 2,
+      fill: false,
+      pointRadius: 0,
+      tension: 0.4,
+      order: 2,
+    };
+
+    // Scatter points for each user on the curve
+    const userPoints = sorted.map(u => ({
+      x: u.score,
+      y: gaussPDF(u.score),
+      name: u.name,
+      z: u.z,
+      score: u.score,
+    }));
+
+    const userDataset = {
+      type: 'scatter',
+      data: userPoints,
+      backgroundColor: userPoints.map(u => getBandForZ(u.z).border),
+      borderColor: userPoints.map(u => getBandForZ(u.z).border),
+      pointRadius: 6,
+      pointHoverRadius: 9,
+      pointStyle: 'circle',
+      order: 1,
+    };
+
+    // σ marker annotations (vertical dashed lines)
     const annotations = {};
     const lineStyle = { type: 'line', borderDash: [6, 4], borderWidth: 1, label: { display: true, position: 'start', font: { size: 10, family: 'IBM Plex Mono' }, padding: 3 } };
 
     annotations.mean = {
       ...lineStyle,
-      yMin: mean, yMax: mean,
-      borderColor: 'rgba(255,255,255,0.5)',
-      label: { ...lineStyle.label, content: 'μ ' + mean.toFixed(0), color: 'rgba(255,255,255,0.7)', backgroundColor: 'rgba(0,0,0,0.6)' }
+      xMin: mean, xMax: mean,
+      borderColor: 'rgba(255,255,255,0.4)',
+      label: { ...lineStyle.label, content: 'μ', color: 'rgba(255,255,255,0.7)', backgroundColor: 'rgba(0,0,0,0.6)' }
     };
     [-2, -1, 1, 2].forEach(n => {
       const val = mean + n * stdDev;
-      if (val >= 0) {
+      if (val >= xMin && val <= xMax) {
         annotations['sd' + n] = {
           ...lineStyle,
-          yMin: val, yMax: val,
-          borderColor: 'rgba(255,255,255,0.2)',
-          label: { ...lineStyle.label, content: (n > 0 ? '+' : '') + n + 'σ ' + val.toFixed(0), color: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(0,0,0,0.6)' }
+          xMin: val, xMax: val,
+          borderColor: 'rgba(255,255,255,0.15)',
+          label: { ...lineStyle.label, content: (n > 0 ? '+' : '') + n + 'σ', color: 'rgba(255,255,255,0.35)', backgroundColor: 'rgba(0,0,0,0.6)' }
         };
       }
     });
 
     const canvas = document.getElementById('dist-chart');
     distChart = new Chart(canvas, {
-      type: 'bar',
+      type: 'scatter',
       data: {
-        labels,
-        datasets: [{
-          data,
-          backgroundColor: bgColors,
-          borderColor: borderColors,
-          borderWidth: 1,
-          borderRadius: 3,
-        }]
+        datasets: [...bandDatasets, curveDataset, userDataset]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        indexAxis: 'x',
         plugins: {
           legend: { display: false },
           annotation: { annotations },
           tooltip: {
+            filter: function(item) { return item.datasetIndex === bandDatasets.length + 1; },
             callbacks: {
+              title: function(items) {
+                if (!items.length) return '';
+                return userPoints[items[0].dataIndex].name;
+              },
               label: function(ctx) {
-                const u = sorted[ctx.dataIndex];
+                const u = userPoints[ctx.dataIndex];
                 return 'Score: ' + u.score.toFixed(0) + ' (' + (u.z >= 0 ? '+' : '') + u.z.toFixed(2) + 'σ)';
               }
             },
@@ -1798,30 +1952,68 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
         },
         scales: {
           x: {
-            ticks: { color: '#777', font: { family: 'IBM Plex Mono', size: 10 }, maxRotation: 45, minRotation: 25 },
+            type: 'linear',
+            min: xMin,
+            max: xMax,
+            ticks: { color: '#555', font: { family: 'IBM Plex Mono', size: 10 }, callback: function(v) { return v.toFixed(0); } },
             grid: { color: 'rgba(255,255,255,0.04)' },
+            title: { display: true, text: 'Score', color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
           },
           y: {
             beginAtZero: true,
-            ticks: { color: '#555', font: { family: 'IBM Plex Mono', size: 10 } },
-            grid: { color: 'rgba(255,255,255,0.06)' },
-            title: { display: true, text: 'Score', color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
+            ticks: { display: false },
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            title: { display: true, text: 'Density', color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
           }
         }
       }
     });
 
+    // Legend
     const legendEl = document.getElementById('dist-legend');
-    const usedBands = new Set(sorted.map(u => getBand(u.z)));
-    legendEl.innerHTML = Object.entries(bandColors)
-      .filter(([k]) => usedBands.has(k))
-      .map(([, v]) =>
+    const usedBands = new Set(sorted.map(u => {
+      const b = getBandForZ(u.z);
+      return bandDefs.indexOf(b);
+    }));
+    legendEl.innerHTML = bandDefs
+      .filter((_, i) => usedBands.has(i))
+      .map(b =>
         '<div class="dist-legend-item">'
-          + '<div class="dist-legend-swatch" style="background:' + v.border + '"></div>'
-          + '<span>' + v.label + '</span>'
+          + '<div class="dist-legend-swatch" style="background:' + b.border + '"></div>'
+          + '<span>' + b.label + '</span>'
         + '</div>'
       ).join('');
   }
+
+  // ─── Fire Badge Popup ─────────────────────────────────────────────────
+
+  const METRIC_LABELS = {};
+  METRICS.forEach(m => { METRIC_LABELS[m.key] = m.label; });
+
+  window.showFirePopup = function(e, metricKey, zScore) {
+    const popup = document.getElementById('fire-popup');
+    const body = document.getElementById('fire-popup-body');
+    const label = METRIC_LABELS[metricKey] || metricKey;
+    body.innerHTML = 'This contributor\\'s <span class="fire-popup-value">' + label + '</span> is '
+      + '<span class="fire-popup-value">+' + zScore + 'σ</span> above the team average — '
+      + 'placing them in the top tier for this metric during the selected time range.';
+    popup.classList.add('visible');
+
+    const rect = e.target.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - 130;
+    let top = rect.bottom + 8;
+    if (left < 8) left = 8;
+    if (left + 260 > window.innerWidth) left = window.innerWidth - 268;
+    if (top + 100 > window.innerHeight) top = rect.top - 8 - popup.offsetHeight;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+  };
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.fire-badge')) {
+      document.getElementById('fire-popup').classList.remove('visible');
+    }
+  });
 
   // ─── User Profile ──────────────────────────────────────────────────────
 
@@ -1853,7 +2045,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     html += '<div class="profile-stats">';
     METRICS.forEach(m => {
-      const fire = userOutliers[m.key] ? '<span class="fire-badge" title="+' + userOutliers[m.key].zScore + 'σ above avg">🔥</span>' : '';
+      const fire = userOutliers[m.key] ? '<span class="fire-badge" onclick="event.stopPropagation();showFirePopup(event,\\'' + m.key + '\\',' + userOutliers[m.key].zScore + ')">🔥</span>' : '';
       html += '<div class="profile-stat">'
         + '<div class="pstat-value">' + m.format(totals[m.key]) + fire + '</div>'
         + '<div class="pstat-label">' + m.label + '</div>'
@@ -1904,6 +2096,34 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     html += '</tbody></table></div></div>';
 
+    // ─── Repository breakdown pie chart ──────────────────────────────────
+    const repoTotals = {};
+    periods.forEach(pid => {
+      const d = ud && ud.data[pid];
+      if (!d || !d.repoBreakdown) return;
+      Object.keys(d.repoBreakdown).forEach(repo => {
+        if (!repoTotals[repo]) repoTotals[repo] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+        const rb = d.repoBreakdown[repo];
+        repoTotals[repo].pullRequests += rb.pullRequests || 0;
+        repoTotals[repo].reviews += rb.reviews || 0;
+        repoTotals[repo].commits += rb.commits || 0;
+        repoTotals[repo].loc += rb.loc || 0;
+        repoTotals[repo].filesTouched += rb.filesTouched || 0;
+      });
+    });
+
+    const activeRepos = Object.keys(repoTotals).filter(r =>
+      repoTotals[r].pullRequests > 0 || repoTotals[r].reviews > 0 || repoTotals[r].commits > 0
+    );
+
+    if (activeRepos.length > 0) {
+      html += '<div class="profile-repo-breakdown">';
+      html += '<div class="pchart-title" style="text-align:center;margin-bottom:8px;">REPOSITORY BREAKDOWN</div>';
+      html += '<div class="repo-pie-grid">';
+      html += '<div class="repo-pie-box repo-pie-score"><div class="repo-pie-label">Score</div><canvas id="pie-score"></canvas></div>';
+      html += '</div></div>';
+    }
+
     panel.innerHTML = html;
     overlay.classList.add('visible');
 
@@ -1931,6 +2151,62 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
         m.format
       ));
     });
+
+    // Render repository breakdown pie charts
+    if (activeRepos.length > 0) {
+      const PIE_COLORS = ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff','#ff9999','#66ffcc','#bb88ff','#ffcc00','#44ddff','#ff6666','#99ff99','#dd88ff','#ffdd44','#88ccff'];
+      const shortName = (r) => r.replace(/^@[^/]+\\//, '');
+
+      const pieOpts = (fmt) => ({
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#b0b8c4', font: { family: '\\'JetBrains Mono\\',monospace', size: 10 }, padding: 8, boxWidth: 12 }
+          },
+          tooltip: {
+            backgroundColor: '#161b22',
+            titleColor: '#e6edf3',
+            bodyColor: '#b0b8c4',
+            borderColor: '#30363d',
+            borderWidth: 1,
+            callbacks: {
+              label: function(ctx) {
+                const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                return ' ' + ctx.label + ': ' + (fmt ? fmt(ctx.raw) : ctx.raw) + ' (' + pct + '%)';
+              }
+            }
+          }
+        }
+      });
+
+      // Score breakdown by repo
+      const scoreCanvas = document.getElementById('pie-score');
+      if (scoreCanvas) {
+        const repoScores = {};
+        activeRepos.forEach(r => { repoScores[r] = repoScore(repoTotals[r]); });
+        const scoredRepos = activeRepos.filter(r => repoScores[r] > 0);
+        if (scoredRepos.length > 0) {
+          profileCharts['repo-score'] = new Chart(scoreCanvas, {
+            type: 'doughnut',
+            data: {
+              labels: scoredRepos.map(shortName),
+              datasets: [{
+                data: scoredRepos.map(r => parseFloat(repoScores[r].toFixed(1))),
+                backgroundColor: scoredRepos.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]),
+                borderColor: '#0d1117',
+                borderWidth: 2
+              }]
+            },
+            options: pieOpts(v => v.toFixed(1))
+          });
+        } else {
+          scoreCanvas.parentElement.style.display = 'none';
+        }
+      }
+    }
   };
 
   window.closeProfile = function() {

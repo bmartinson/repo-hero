@@ -627,6 +627,35 @@ header {
   margin-bottom: 16px;
 }
 
+.dist-metric-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.dist-metric-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.dist-metric-btn:hover { color: var(--fg-bright); border-color: var(--fg-dim); }
+
+.dist-metric-btn.active {
+  color: var(--fg-cyan);
+  border-color: var(--fg-cyan);
+  background: rgba(0, 221, 204, 0.08);
+}
+
 .dist-chart-wrap {
   position: relative;
   width: 100%;
@@ -1168,7 +1197,15 @@ body::after {
 
     <!-- Score Distribution -->
     <div class="dist-section" id="dist-section">
-      <div class="dist-title">SCORE DISTRIBUTION</div>
+      <div class="dist-title" id="dist-title">SCORE DISTRIBUTION</div>
+      <div class="dist-metric-bar">
+        <button class="dist-metric-btn active" data-metric="score" onclick="setDistMetric('score')">Score</button>
+        <button class="dist-metric-btn" data-metric="effectivePRs" onclick="setDistMetric('effectivePRs')">PRs</button>
+        <button class="dist-metric-btn" data-metric="reviews" onclick="setDistMetric('reviews')">Reviews</button>
+        <button class="dist-metric-btn" data-metric="commits" onclick="setDistMetric('commits')">Commits</button>
+        <button class="dist-metric-btn" data-metric="loc" onclick="setDistMetric('loc')">LOC</button>
+        <button class="dist-metric-btn" data-metric="filesTouched" onclick="setDistMetric('filesTouched')">Files</button>
+      </div>
       <div class="dist-subtitle" id="dist-subtitle"></div>
       <div class="dist-chart-wrap">
         <canvas id="dist-chart"></canvas>
@@ -1383,6 +1420,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   let currentScope = 7; // days (0 = all)
   let currentSort = 'score';
+  let currentDistMetric = 'score';
   let charts = {};
   let profileCharts = {};
   let distChart = null;
@@ -1786,29 +1824,41 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     }).join('');
 
     // ─── Score Distribution Chart ────────────────────────────────────────
-    renderDistribution(active);
+    lastActiveUsers = active;
+    renderDistribution(active, currentDistMetric);
   }
 
-  function renderDistribution(activeUsers) {
+  let lastActiveUsers = [];
+
+  function renderDistribution(activeUsers, metricKey) {
+    if (!metricKey) metricKey = 'score';
+    const metricDef = METRICS.find(m => m.key === metricKey) || METRICS[0];
+
     if (distChart) { distChart.destroy(); distChart = null; }
 
-    const scores = activeUsers.map(u => u.totals.score);
-    if (scores.length < 2) return;
+    const values = activeUsers.map(u => {
+      if (metricKey === 'effectivePRs') {
+        return u.totals.effectivePRs || 0;
+      }
+      return u.totals[metricKey] || 0;
+    });
+    if (values.length < 2) return;
 
-    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const variance = scores.reduce((a, v) => a + (v - mean) ** 2, 0) / scores.length;
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const variance = values.reduce((a, v) => a + (v - mean) ** 2, 0) / values.length;
     const stdDev = Math.sqrt(variance);
 
+    document.getElementById('dist-title').textContent = metricDef.label.toUpperCase() + ' DISTRIBUTION';
     document.getElementById('dist-subtitle').textContent =
-      'μ = ' + mean.toFixed(1) + '   σ = ' + stdDev.toFixed(1) + '   n = ' + scores.length;
+      'μ = ' + mean.toFixed(1) + '   σ = ' + stdDev.toFixed(1) + '   n = ' + values.length;
 
     const sorted = activeUsers
-      .map(u => ({
+      .map((u, i) => ({
         name: u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '),
-        score: u.totals.score,
-        z: stdDev > 0 ? (u.totals.score - mean) / stdDev : 0
+        value: values[i],
+        z: stdDev > 0 ? (values[i] - mean) / stdDev : 0
       }))
-      .sort((a, b) => a.score - b.score);
+      .sort((a, b) => a.value - b.value);
 
     // Gaussian PDF
     function gaussPDF(x) {
@@ -1879,11 +1929,11 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     // Scatter points for each user on the curve
     const userPoints = sorted.map(u => ({
-      x: u.score,
-      y: gaussPDF(u.score),
+      x: u.value,
+      y: gaussPDF(u.value),
       name: u.name,
       z: u.z,
-      score: u.score,
+      value: u.value,
     }));
 
     const userDataset = {
@@ -1940,7 +1990,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
               },
               label: function(ctx) {
                 const u = userPoints[ctx.dataIndex];
-                return 'Score: ' + u.score.toFixed(0) + ' (' + (u.z >= 0 ? '+' : '') + u.z.toFixed(2) + 'σ)';
+                return metricDef.label + ': ' + metricDef.format(u.value) + ' (' + (u.z >= 0 ? '+' : '') + u.z.toFixed(2) + 'σ)';
               }
             },
             titleFont: { family: 'IBM Plex Mono', size: 12 },
@@ -1957,7 +2007,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
             max: xMax,
             ticks: { color: '#555', font: { family: 'IBM Plex Mono', size: 10 }, callback: function(v) { return v.toFixed(0); } },
             grid: { color: 'rgba(255,255,255,0.04)' },
-            title: { display: true, text: 'Score', color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
+            title: { display: true, text: metricDef.label, color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
           },
           y: {
             beginAtZero: true,
@@ -2237,6 +2287,12 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     currentSort = key;
     document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === key));
     renderUsers();
+  };
+
+  window.setDistMetric = function(key) {
+    currentDistMetric = key;
+    document.querySelectorAll('.dist-metric-btn').forEach(b => b.classList.toggle('active', b.dataset.metric === key));
+    renderDistribution(lastActiveUsers, key);
   };
 
   // ─── Render all ────────────────────────────────────────────────────────

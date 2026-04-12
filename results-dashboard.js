@@ -152,6 +152,7 @@ filteredEntries.forEach(({ entry, startDate, endDate }) => {
       reviews: user.reviews || 0,
       loc: user.loc || 0,
       filesTouched: user.filesTouched || 0,
+      repoBreakdown: user.repoBreakdown || {},
     };
   });
 });
@@ -856,6 +857,40 @@ header {
   border-top: 1px solid var(--fg-dim);
   color: var(--fg-bright);
   font-weight: 700;
+}
+
+/* ─── Repository Breakdown Pie Charts ────────────────────────────────────── */
+
+.profile-repo-breakdown {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.repo-pie-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.repo-pie-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.repo-pie-label {
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--fg-dim);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 700px) {
+  .repo-pie-grid { grid-template-columns: 1fr; }
 }
 
 /* ─── Methodology Page ───────────────────────────────────────────────────── */
@@ -2048,6 +2083,36 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     html += '</tbody></table></div></div>';
 
+    // ─── Repository breakdown pie chart ──────────────────────────────────
+    const repoTotals = {};
+    periods.forEach(pid => {
+      const d = ud && ud.data[pid];
+      if (!d || !d.repoBreakdown) return;
+      Object.keys(d.repoBreakdown).forEach(repo => {
+        if (!repoTotals[repo]) repoTotals[repo] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+        const rb = d.repoBreakdown[repo];
+        repoTotals[repo].pullRequests += rb.pullRequests || 0;
+        repoTotals[repo].reviews += rb.reviews || 0;
+        repoTotals[repo].commits += rb.commits || 0;
+        repoTotals[repo].loc += rb.loc || 0;
+        repoTotals[repo].filesTouched += rb.filesTouched || 0;
+      });
+    });
+
+    const activeRepos = Object.keys(repoTotals).filter(r =>
+      repoTotals[r].pullRequests > 0 || repoTotals[r].reviews > 0 || repoTotals[r].commits > 0
+    );
+
+    if (activeRepos.length > 0) {
+      html += '<div class="profile-repo-breakdown">';
+      html += '<div class="pchart-title" style="text-align:center;margin-bottom:8px;">REPOSITORY BREAKDOWN</div>';
+      html += '<div class="repo-pie-grid">';
+      html += '<div class="repo-pie-box"><div class="repo-pie-label">Pull Requests</div><canvas id="pie-prs"></canvas></div>';
+      html += '<div class="repo-pie-box"><div class="repo-pie-label">Reviews</div><canvas id="pie-reviews"></canvas></div>';
+      html += '<div class="repo-pie-box"><div class="repo-pie-label">Commits</div><canvas id="pie-commits"></canvas></div>';
+      html += '</div></div>';
+    }
+
     panel.innerHTML = html;
     overlay.classList.add('visible');
 
@@ -2075,6 +2140,62 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
         m.format
       ));
     });
+
+    // Render repository breakdown pie charts
+    if (activeRepos.length > 0) {
+      const PIE_COLORS = ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff','#ff9999','#66ffcc','#bb88ff','#ffcc00','#44ddff','#ff6666','#99ff99','#dd88ff','#ffdd44','#88ccff'];
+      const shortName = (r) => r.replace(/^@[^/]+\\//, '');
+
+      [
+        { id: 'pie-prs', metric: 'pullRequests' },
+        { id: 'pie-reviews', metric: 'reviews' },
+        { id: 'pie-commits', metric: 'commits' },
+      ].forEach(pie => {
+        const canvas = document.getElementById(pie.id);
+        if (!canvas) return;
+        const repos = activeRepos.filter(r => (repoTotals[r][pie.metric] || 0) > 0);
+        if (repos.length === 0) {
+          canvas.parentElement.style.display = 'none';
+          return;
+        }
+        profileCharts['repo-' + pie.metric] = new Chart(canvas, {
+          type: 'doughnut',
+          data: {
+            labels: repos.map(shortName),
+            datasets: [{
+              data: repos.map(r => repoTotals[r][pie.metric] || 0),
+              backgroundColor: repos.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]),
+              borderColor: '#0d1117',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#b0b8c4', font: { family: '\\'JetBrains Mono\\',monospace', size: 10 }, padding: 8, boxWidth: 12 }
+              },
+              tooltip: {
+                backgroundColor: '#161b22',
+                titleColor: '#e6edf3',
+                bodyColor: '#b0b8c4',
+                borderColor: '#30363d',
+                borderWidth: 1,
+                callbacks: {
+                  label: function(ctx) {
+                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                    const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                    return ' ' + ctx.label + ': ' + ctx.raw + ' (' + pct + '%)';
+                  }
+                }
+              }
+            }
+          }
+        });
+      });
+    }
   };
 
   window.closeProfile = function() {

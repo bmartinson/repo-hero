@@ -109,6 +109,18 @@ function removeEmailAccount(input) {
 }
 
 /**
+ * Extract a display-friendly repository name from a GitHub PR search result.
+ * Uses repository_url (e.g. https://api.github.com/repos/TreeRing/cambium)
+ * and returns "@Owner/repo" format.
+ */
+function extractRepoName(pr) {
+  const url = pr.repository_url || '';
+  const match = url.match(/\/repos\/([^/]+)\/([^/]+)$/);
+  if (match) return '@' + match[1] + '/' + match[2];
+  return '';
+}
+
+/**
  * Get the standard alias based on a specific user name provided. This assumes
  * that the _ALIASES global object has been configured based on application
  * parameters.
@@ -637,7 +649,7 @@ function _processProjects() {
                     .then(users => {
                       users = users.split('\n');
 
-                      processUserCommits(packageName)
+                      processUserCommits(packageName, project)
                         .then(() => {
                           // we are complete processing commits
                           resolve();
@@ -764,6 +776,10 @@ function _processProjects() {
         _RESULTS.users[alias].reviews = 0;
       }
 
+      if (!_RESULTS.users[alias].repoBreakdown) {
+        _RESULTS.users[alias].repoBreakdown = {};
+      }
+
       try {
         const userPullRequests = pullRequests.filter(
           pr =>
@@ -773,27 +789,49 @@ function _processProjects() {
             !pr.draft // Exclude draft pull requests
         );
 
-        // count the pull requests
+        // count the pull requests and track per-repo
         _RESULTS.users[alias].pullRequests += userPullRequests.length;
+        userPullRequests.forEach(pr => {
+          const repoName = extractRepoName(pr);
+          if (repoName) {
+            if (!_RESULTS.users[alias].repoBreakdown[repoName]) {
+              _RESULTS.users[alias].repoBreakdown[repoName] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+            }
+            _RESULTS.users[alias].repoBreakdown[repoName].pullRequests++;
+          }
+        });
 
         // tally up lines of code change
         userPullRequests.forEach(pr => {
+          const repoName = extractRepoName(pr);
           processingPullRequestDetails.push(
             new Promise(prdResolve => {
               getFromGitHubAPI(
                 `${pr.pull_request.url.replace('https://api.github.com', '')}`
               )
                 .then(prdResponse => {
-                  _RESULTS.users[alias].loc += prdResponse?.data.additions
+                  const additions = prdResponse?.data.additions
                     ? +prdResponse?.data.additions
                     : 0;
-                  _RESULTS.users[alias].loc += prdResponse?.data.deletions
+                  const deletions = prdResponse?.data.deletions
                     ? +prdResponse?.data.deletions
                     : 0;
-                  _RESULTS.users[alias].filesTouched += prdResponse?.data
-                    .changed_files
+                  const changedFiles = prdResponse?.data.changed_files
                     ? +prdResponse?.data.changed_files
                     : 0;
+
+                  _RESULTS.users[alias].loc += additions + deletions;
+                  _RESULTS.users[alias].filesTouched += changedFiles;
+
+                  // Track per-repo loc and filesTouched
+                  if (repoName) {
+                    if (!_RESULTS.users[alias].repoBreakdown[repoName]) {
+                      _RESULTS.users[alias].repoBreakdown[repoName] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+                    }
+                    _RESULTS.users[alias].repoBreakdown[repoName].loc += additions + deletions;
+                    _RESULTS.users[alias].repoBreakdown[repoName].filesTouched += changedFiles;
+                  }
+
                   if (!prdResponse?.data.merged) {
                     _RESULTS.users[alias].pendingCommits += prdResponse?.data
                       .commits
@@ -820,8 +858,20 @@ function _processProjects() {
                             _RESULTS.users[reviewerAlias].reviews = 0;
                           }
 
+                          if (!_RESULTS.users[reviewerAlias].repoBreakdown) {
+                            _RESULTS.users[reviewerAlias].repoBreakdown = {};
+                          }
+
                           // count the review
                           _RESULTS.users[reviewerAlias].reviews++;
+
+                          // Track per-repo reviews
+                          if (repoName) {
+                            if (!_RESULTS.users[reviewerAlias].repoBreakdown[repoName]) {
+                              _RESULTS.users[reviewerAlias].repoBreakdown[repoName] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+                            }
+                            _RESULTS.users[reviewerAlias].repoBreakdown[repoName].reviews++;
+                          }
                         });
                       }
                     })
@@ -847,7 +897,7 @@ function _processProjects() {
   });
 }
 
-function processUserCommits(packageName) {
+function processUserCommits(packageName, project) {
   return new Promise((resolve, reject) => {
     executeCommand(
       `git log --since='${_START_DATE}T00:00:00-00:00' --until='${_END_DATE}T23:59:59-00:00' --pretty=format:"%an"`,
@@ -889,6 +939,16 @@ function processUserCommits(packageName) {
 
         Object.keys(userCommits).forEach(author => {
           _RESULTS.users[author].commits += userCommits[author];
+
+          // Track per-repo commits
+          if (!_RESULTS.users[author].repoBreakdown) {
+            _RESULTS.users[author].repoBreakdown = {};
+          }
+          const repoName = project || packageName;
+          if (!_RESULTS.users[author].repoBreakdown[repoName]) {
+            _RESULTS.users[author].repoBreakdown[repoName] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+          }
+          _RESULTS.users[author].repoBreakdown[repoName].commits += userCommits[author];
         });
 
         resolve();

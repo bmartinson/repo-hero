@@ -1,7 +1,7 @@
 {
   "directory": "/Users/bmartinson/Development",
-  "startDate": "2015-01-01",
-  "endDate": "2026-04-30",
+  "startDate": "2020-01-01",
+  "endDate": "2024-01-01",
   "skipCache": false,
   "projects": [
     "@TreeRing/dev-ops",
@@ -101,7 +101,11 @@
       "claude",
       "copilot-pull-request-reviewer[bot]",
       "copilot-swe-agent[bot]"
-    ]
+    ],
+    "Josh Balda": ["jab-cstg"],
+    "Juan Ramirez": ["jar-cstg", "juan", "jr"],
+    "Wil Peoples": ["jwp-cstg", "wil.peoples@cleanslatetg.com"],
+    "Nathan Liston": ["ncl-cstg"]
   },
   "ignoreUsers": [
     "DevOps Deployment",
@@ -114,7 +118,7 @@
     "AI Bots"
   ],
   "tokens": {
-    "github": "XXXXXXXXXXXXXXX"
+    "github": "ghp_XXXXXX"
   },
   "commitsPerPullRequest": 12.5
 }

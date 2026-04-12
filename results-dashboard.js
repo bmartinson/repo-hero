@@ -1338,7 +1338,7 @@ body::after {
     <span class="footer-sep">|</span>
     <a href="https://www.brianmartinson.com" target="_blank" rel="noopener">
       <img class="footer-icon" src="data:image/png;base64,${bjmFaviconB64}" alt="BJM">
-      Developed by Brian Martinson
+      By Brian Martinson
     </a>
   </div>
 </footer>

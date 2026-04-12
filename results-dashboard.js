@@ -315,17 +315,56 @@ header {
 .filter-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0;
   margin-bottom: 20px;
   font-size: 12px;
+  position: relative;
 }
 
 .filter-bar .label {
   color: var(--fg-muted);
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-right: 4px;
+  margin-right: 8px;
+  flex-shrink: 0;
 }
+
+.scrollable-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+}
+
+.scrollable-btns::-webkit-scrollbar { display: none; }
+
+.scroll-arrow {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  width: 24px;
+  height: 28px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: var(--radius);
+  font-size: 14px;
+  z-index: 2;
+  transition: color 0.15s, border-color 0.15s;
+  padding: 0;
+  font-family: var(--font);
+}
+
+.scroll-arrow:hover { color: var(--fg-bright); border-color: var(--fg-dim); }
+
+.scroll-arrow.visible { display: flex; }
 
 .scope-btn {
   background: transparent;
@@ -629,9 +668,10 @@ header {
 
 .dist-metric-bar {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 0;
   margin-bottom: 12px;
-  flex-wrap: wrap;
+  position: relative;
 }
 
 .dist-metric-btn {
@@ -1045,6 +1085,13 @@ body::after {
   .widget-body { flex-direction: column; }
   .widget-leaderboard { width: 100%; }
   .widget-chart canvas { height: 180px !important; }
+  .users-grid { grid-template-columns: 1fr; }
+  .summary-row { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+}
+
+@media (max-width: 500px) {
+  .summary-row { grid-template-columns: 1fr 1fr; }
+  .nav-btn { padding: 10px 12px; font-size: 11px; letter-spacing: 1px; }
 }
 
 /* ─── Users Sort Bar ─────────────────────────────────────────────────────── */
@@ -1052,9 +1099,10 @@ body::after {
 .users-sort-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0;
   margin-bottom: 16px;
   font-size: 12px;
+  position: relative;
 }
 
 .sort-btn {
@@ -1150,17 +1198,21 @@ body::after {
   <div class="tab-panel active" id="tab-dashboard">
 
     <!-- Filter bar -->
-    <div class="filter-bar">
+    <div class="filter-bar" id="dash-filter-bar">
       <span class="label">Scope:</span>
-      <button class="scope-btn active" data-scope="7" onclick="setScope(7)">1W</button>
-      <button class="scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
-      <button class="scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
-      <button class="scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
-      <button class="scope-btn" data-scope="60" onclick="setScope(60)">2M</button>
-      <button class="scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
-      <button class="scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
-      <button class="scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
-      <button class="scope-btn" data-scope="0" onclick="setScope(0)">All</button>
+      <button class="scroll-arrow scroll-left" onclick="scrollBtns(this)" aria-label="Scroll left">◂</button>
+      <div class="scrollable-btns">
+        <button class="scope-btn active" data-scope="7" onclick="setScope(7)">1W</button>
+        <button class="scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
+        <button class="scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
+        <button class="scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
+        <button class="scope-btn" data-scope="60" onclick="setScope(60)">2M</button>
+        <button class="scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
+        <button class="scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
+        <button class="scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
+        <button class="scope-btn" data-scope="0" onclick="setScope(0)">All</button>
+      </div>
+      <button class="scroll-arrow scroll-right" onclick="scrollBtns(this)" aria-label="Scroll right">▸</button>
     </div>
 
     <!-- Summary cards -->
@@ -1172,39 +1224,51 @@ body::after {
 
   <!-- ═══ Users Tab ═══ -->
   <div class="tab-panel" id="tab-users">
-    <div class="filter-bar">
+    <div class="filter-bar" id="users-filter-bar">
       <span class="label">Scope:</span>
-      <button class="scope-btn users-scope-btn active" data-scope="7" onclick="setScope(7)">1W</button>
-      <button class="scope-btn users-scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
-      <button class="scope-btn users-scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
-      <button class="scope-btn users-scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
-      <button class="scope-btn users-scope-btn" data-scope="60" onclick="setScope(60)">2M</button>
-      <button class="scope-btn users-scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
-      <button class="scope-btn users-scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
-      <button class="scope-btn users-scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
-      <button class="scope-btn users-scope-btn" data-scope="0" onclick="setScope(0)">All</button>
+      <button class="scroll-arrow scroll-left" onclick="scrollBtns(this)" aria-label="Scroll left">◂</button>
+      <div class="scrollable-btns">
+        <button class="scope-btn users-scope-btn active" data-scope="7" onclick="setScope(7)">1W</button>
+        <button class="scope-btn users-scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
+        <button class="scope-btn users-scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
+        <button class="scope-btn users-scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
+        <button class="scope-btn users-scope-btn" data-scope="60" onclick="setScope(60)">2M</button>
+        <button class="scope-btn users-scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
+        <button class="scope-btn users-scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
+        <button class="scope-btn users-scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
+        <button class="scope-btn users-scope-btn" data-scope="0" onclick="setScope(0)">All</button>
+      </div>
+      <button class="scroll-arrow scroll-right" onclick="scrollBtns(this)" aria-label="Scroll right">▸</button>
     </div>
-    <div class="users-sort-bar">
+    <div class="users-sort-bar" id="users-sort-bar">
       <span class="label">Sort by:</span>
-      <button class="sort-btn active" data-sort="score" onclick="setUserSort('score')">Score</button>
-      <button class="sort-btn" data-sort="commits" onclick="setUserSort('commits')">Commits</button>
-      <button class="sort-btn" data-sort="pullRequests" onclick="setUserSort('pullRequests')">PRs</button>
-      <button class="sort-btn" data-sort="reviews" onclick="setUserSort('reviews')">Reviews</button>
-      <button class="sort-btn" data-sort="loc" onclick="setUserSort('loc')">LOC</button>
-      <button class="sort-btn" data-sort="filesTouched" onclick="setUserSort('filesTouched')">Files</button>
+      <button class="scroll-arrow scroll-left" onclick="scrollBtns(this)" aria-label="Scroll left">◂</button>
+      <div class="scrollable-btns">
+        <button class="sort-btn active" data-sort="score" onclick="setUserSort('score')">Score</button>
+        <button class="sort-btn" data-sort="commits" onclick="setUserSort('commits')">Commits</button>
+        <button class="sort-btn" data-sort="pullRequests" onclick="setUserSort('pullRequests')">PRs</button>
+        <button class="sort-btn" data-sort="reviews" onclick="setUserSort('reviews')">Reviews</button>
+        <button class="sort-btn" data-sort="loc" onclick="setUserSort('loc')">LOC</button>
+        <button class="sort-btn" data-sort="filesTouched" onclick="setUserSort('filesTouched')">Files</button>
+      </div>
+      <button class="scroll-arrow scroll-right" onclick="scrollBtns(this)" aria-label="Scroll right">▸</button>
     </div>
     <div class="users-grid" id="users-grid"></div>
 
     <!-- Score Distribution -->
     <div class="dist-section" id="dist-section">
       <div class="dist-title" id="dist-title">SCORE DISTRIBUTION</div>
-      <div class="dist-metric-bar">
-        <button class="dist-metric-btn active" data-metric="score" onclick="setDistMetric('score')">Score</button>
-        <button class="dist-metric-btn" data-metric="effectivePRs" onclick="setDistMetric('effectivePRs')">PRs</button>
-        <button class="dist-metric-btn" data-metric="reviews" onclick="setDistMetric('reviews')">Reviews</button>
-        <button class="dist-metric-btn" data-metric="commits" onclick="setDistMetric('commits')">Commits</button>
-        <button class="dist-metric-btn" data-metric="loc" onclick="setDistMetric('loc')">LOC</button>
-        <button class="dist-metric-btn" data-metric="filesTouched" onclick="setDistMetric('filesTouched')">Files</button>
+      <div class="dist-metric-bar" id="dist-metric-bar">
+        <button class="scroll-arrow scroll-left" onclick="scrollBtns(this)" aria-label="Scroll left">◂</button>
+        <div class="scrollable-btns">
+          <button class="dist-metric-btn active" data-metric="score" onclick="setDistMetric('score')">Score</button>
+          <button class="dist-metric-btn" data-metric="effectivePRs" onclick="setDistMetric('effectivePRs')">PRs</button>
+          <button class="dist-metric-btn" data-metric="reviews" onclick="setDistMetric('reviews')">Reviews</button>
+          <button class="dist-metric-btn" data-metric="commits" onclick="setDistMetric('commits')">Commits</button>
+          <button class="dist-metric-btn" data-metric="loc" onclick="setDistMetric('loc')">LOC</button>
+          <button class="dist-metric-btn" data-metric="filesTouched" onclick="setDistMetric('filesTouched')">Files</button>
+        </div>
+        <button class="scroll-arrow scroll-right" onclick="scrollBtns(this)" aria-label="Scroll right">▸</button>
       </div>
       <div class="dist-subtitle" id="dist-subtitle"></div>
       <div class="dist-chart-wrap">
@@ -2305,6 +2369,38 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     }
   }
 
+  // ─── Scrollable button bars ────────────────────────────────────────────
+
+  window.scrollBtns = function(arrow) {
+    const bar = arrow.parentElement;
+    const container = bar.querySelector('.scrollable-btns');
+    if (!container) return;
+    const dir = arrow.classList.contains('scroll-left') ? -1 : 1;
+    container.scrollBy({ left: dir * 120, behavior: 'smooth' });
+  };
+
+  function updateScrollArrows() {
+    document.querySelectorAll('.filter-bar, .users-sort-bar, .dist-metric-bar').forEach(bar => {
+      const container = bar.querySelector('.scrollable-btns');
+      if (!container) return;
+      const leftArrow = bar.querySelector('.scroll-left');
+      const rightArrow = bar.querySelector('.scroll-right');
+      if (!leftArrow || !rightArrow) return;
+
+      const canScrollLeft = container.scrollLeft > 1;
+      const canScrollRight = container.scrollLeft < container.scrollWidth - container.clientWidth - 1;
+
+      leftArrow.classList.toggle('visible', canScrollLeft);
+      rightArrow.classList.toggle('visible', canScrollRight);
+    });
+  }
+
+  // Update arrows on scroll and resize
+  document.querySelectorAll('.scrollable-btns').forEach(el => {
+    el.addEventListener('scroll', updateScrollArrows);
+  });
+  window.addEventListener('resize', updateScrollArrows);
+
   // ─── Init ──────────────────────────────────────────────────────────────
 
   function init() {
@@ -2317,6 +2413,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       rangeEl.textContent = 'NO DATA AVAILABLE';
     }
     renderAll();
+    setTimeout(updateScrollArrows, 100);
   }
 
   // Handle escape key to close profile

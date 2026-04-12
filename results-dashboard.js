@@ -1112,7 +1112,7 @@ body::after {
 
   <!-- Navigation -->
   <nav class="nav-bar">
-    <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">DASHBOARD</button>
+    <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">METRICS</button>
     <button class="nav-btn" data-tab="users" onclick="switchTab('users')">USERS</button>
     <button class="nav-btn" data-tab="methodology" onclick="switchTab('methodology')">METHODOLOGY</button>
   </nav>

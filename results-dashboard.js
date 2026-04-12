@@ -672,7 +672,7 @@ header {
   backdrop-filter: blur(4px);
 }
 
-.overlay.visible { display: flex; justify-content: center; padding: 40px 20px; }
+.overlay.visible { display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px; }
 
 .profile-panel {
   background: var(--bg);
@@ -682,6 +682,8 @@ header {
   width: 100%;
   padding: 32px;
   position: relative;
+  margin-bottom: 40px;
+  flex-shrink: 0;
 }
 
 .profile-close {
@@ -868,9 +870,8 @@ header {
 }
 
 .repo-pie-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  display: flex;
+  justify-content: center;
 }
 
 .repo-pie-box {
@@ -881,9 +882,7 @@ header {
 }
 
 .repo-pie-box.repo-pie-score {
-  grid-column: 1 / -1;
   max-width: 380px;
-  margin: 0 auto;
   width: 100%;
 }
 
@@ -894,10 +893,6 @@ header {
   color: var(--fg-dim);
   text-align: center;
   margin-bottom: 8px;
-}
-
-@media (max-width: 700px) {
-  .repo-pie-grid { grid-template-columns: 1fr; }
 }
 
 /* ─── Methodology Page ───────────────────────────────────────────────────── */
@@ -2126,9 +2121,6 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       html += '<div class="pchart-title" style="text-align:center;margin-bottom:8px;">REPOSITORY BREAKDOWN</div>';
       html += '<div class="repo-pie-grid">';
       html += '<div class="repo-pie-box repo-pie-score"><div class="repo-pie-label">Score</div><canvas id="pie-score"></canvas></div>';
-      html += '<div class="repo-pie-box"><div class="repo-pie-label">Pull Requests</div><canvas id="pie-prs"></canvas></div>';
-      html += '<div class="repo-pie-box"><div class="repo-pie-label">Reviews</div><canvas id="pie-reviews"></canvas></div>';
-      html += '<div class="repo-pie-box"><div class="repo-pie-label">Commits</div><canvas id="pie-commits"></canvas></div>';
       html += '</div></div>';
     }
 
@@ -2214,34 +2206,6 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
           scoreCanvas.parentElement.style.display = 'none';
         }
       }
-
-      // Metric breakdown pies
-      [
-        { id: 'pie-prs', metric: 'pullRequests' },
-        { id: 'pie-reviews', metric: 'reviews' },
-        { id: 'pie-commits', metric: 'commits' },
-      ].forEach(pie => {
-        const canvas = document.getElementById(pie.id);
-        if (!canvas) return;
-        const repos = activeRepos.filter(r => (repoTotals[r][pie.metric] || 0) > 0);
-        if (repos.length === 0) {
-          canvas.parentElement.style.display = 'none';
-          return;
-        }
-        profileCharts['repo-' + pie.metric] = new Chart(canvas, {
-          type: 'doughnut',
-          data: {
-            labels: repos.map(shortName),
-            datasets: [{
-              data: repos.map(r => repoTotals[r][pie.metric] || 0),
-              backgroundColor: repos.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]),
-              borderColor: '#0d1117',
-              borderWidth: 2
-            }]
-          },
-          options: pieOpts()
-        });
-      });
     }
   };
 

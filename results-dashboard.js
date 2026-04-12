@@ -273,6 +273,7 @@ header {
   letter-spacing: 6px;
   line-height: 1;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .logo .accent { color: var(--fg-cyan); }
@@ -281,6 +282,19 @@ header {
   color: var(--fg-dim);
   font-size: 12px;
   letter-spacing: 1px;
+  margin-top: 8px;
+}
+
+@media (max-width: 600px) {
+  .logo { font-size: 28px; letter-spacing: 3px; }
+  .logo-icon { width: 36px; height: 36px; }
+  .logo-row { gap: 10px; }
+  header { gap: 8px; }
+}
+
+@media (max-width: 400px) {
+  .logo { font-size: 22px; letter-spacing: 2px; }
+  .logo-icon { width: 28px; height: 28px; }
 }
 
 /* ─── Nav / Tab Bar ──────────────────────────────────────────────────────── */

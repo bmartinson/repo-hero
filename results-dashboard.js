@@ -1720,72 +1720,136 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       }))
       .sort((a, b) => a.score - b.score);
 
-    const bandColors = {
-      'below-2':  { bg: 'rgba(255, 51, 51, 0.5)',  border: '#ff3333', label: '< −2σ' },
-      'below-1':  { bg: 'rgba(255, 136, 68, 0.5)',  border: '#ff8844', label: '−2σ to −1σ' },
-      'within':   { bg: 'rgba(0, 170, 255, 0.5)',   border: '#00aaff', label: '−1σ to +1σ' },
-      'above-1':  { bg: 'rgba(0, 221, 204, 0.5)',   border: '#00ddcc', label: '+1σ to +2σ' },
-      'above-2':  { bg: 'rgba(204, 102, 255, 0.5)', border: '#cc66ff', label: '> +2σ' },
-    };
-
-    function getBand(z) {
-      if (z <= -2) return 'below-2';
-      if (z <= -1) return 'below-1';
-      if (z <= 1)  return 'within';
-      if (z <= 2)  return 'above-1';
-      return 'above-2';
+    // Gaussian PDF
+    function gaussPDF(x) {
+      if (stdDev === 0) return 0;
+      const exp = -0.5 * ((x - mean) / stdDev) ** 2;
+      return (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.pow(Math.E, exp);
     }
 
-    const labels = sorted.map(u => u.name);
-    const data = sorted.map(u => u.score);
-    const bgColors = sorted.map(u => bandColors[getBand(u.z)].bg);
-    const borderColors = sorted.map(u => bandColors[getBand(u.z)].border);
+    // Generate smooth bell curve points from μ-3.5σ to μ+3.5σ
+    const xMin = Math.max(0, mean - 3.5 * stdDev);
+    const xMax = mean + 3.5 * stdDev;
+    const steps = 200;
+    const curvePoints = [];
+    for (let i = 0; i <= steps; i++) {
+      const x = xMin + (xMax - xMin) * (i / steps);
+      curvePoints.push({ x, y: gaussPDF(x) });
+    }
 
+    // σ band color mapping
+    const bandDefs = [
+      { min: -Infinity, max: -2, bg: 'rgba(255, 51, 51, 0.12)',  border: '#ff3333', label: '< −2σ' },
+      { min: -2,        max: -1, bg: 'rgba(255, 136, 68, 0.15)', border: '#ff8844', label: '−2σ to −1σ' },
+      { min: -1,        max:  1, bg: 'rgba(0, 170, 255, 0.15)',  border: '#00aaff', label: '−1σ to +1σ' },
+      { min:  1,        max:  2, bg: 'rgba(0, 221, 204, 0.15)',  border: '#00ddcc', label: '+1σ to +2σ' },
+      { min:  2,        max: Infinity, bg: 'rgba(204, 102, 255, 0.15)', border: '#cc66ff', label: '> +2σ' },
+    ];
+
+    function getBandForZ(z) {
+      return bandDefs.find(b => z > b.min && z <= b.max) || bandDefs[2];
+    }
+
+    // Create filled region datasets for each σ band
+    const bandDatasets = bandDefs.map(band => {
+      const lo = band.min === -Infinity ? xMin : Math.max(xMin, mean + band.min * stdDev);
+      const hi = band.max ===  Infinity ? xMax : Math.min(xMax, mean + band.max * stdDev);
+      const pts = curvePoints
+        .filter(p => p.x >= lo - 0.01 && p.x <= hi + 0.01)
+        .map(p => ({ x: p.x, y: p.y }));
+      // Add boundary points at y=0 for clean fill
+      if (pts.length > 0) {
+        pts.unshift({ x: pts[0].x, y: 0 });
+        pts.push({ x: pts[pts.length - 1].x, y: 0 });
+      }
+      return {
+        type: 'line',
+        data: pts,
+        backgroundColor: band.bg,
+        borderColor: 'transparent',
+        borderWidth: 0,
+        fill: true,
+        pointRadius: 0,
+        tension: 0.4,
+        order: 3,
+      };
+    });
+
+    // Bell curve line
+    const curveDataset = {
+      type: 'line',
+      data: curvePoints,
+      borderColor: 'rgba(255, 255, 255, 0.5)',
+      borderWidth: 2,
+      fill: false,
+      pointRadius: 0,
+      tension: 0.4,
+      order: 2,
+    };
+
+    // Scatter points for each user on the curve
+    const userPoints = sorted.map(u => ({
+      x: u.score,
+      y: gaussPDF(u.score),
+      name: u.name,
+      z: u.z,
+      score: u.score,
+    }));
+
+    const userDataset = {
+      type: 'scatter',
+      data: userPoints,
+      backgroundColor: userPoints.map(u => getBandForZ(u.z).border),
+      borderColor: userPoints.map(u => getBandForZ(u.z).border),
+      pointRadius: 6,
+      pointHoverRadius: 9,
+      pointStyle: 'circle',
+      order: 1,
+    };
+
+    // σ marker annotations (vertical dashed lines)
     const annotations = {};
     const lineStyle = { type: 'line', borderDash: [6, 4], borderWidth: 1, label: { display: true, position: 'start', font: { size: 10, family: 'IBM Plex Mono' }, padding: 3 } };
 
     annotations.mean = {
       ...lineStyle,
-      yMin: mean, yMax: mean,
-      borderColor: 'rgba(255,255,255,0.5)',
-      label: { ...lineStyle.label, content: 'μ ' + mean.toFixed(0), color: 'rgba(255,255,255,0.7)', backgroundColor: 'rgba(0,0,0,0.6)' }
+      xMin: mean, xMax: mean,
+      borderColor: 'rgba(255,255,255,0.4)',
+      label: { ...lineStyle.label, content: 'μ', color: 'rgba(255,255,255,0.7)', backgroundColor: 'rgba(0,0,0,0.6)' }
     };
     [-2, -1, 1, 2].forEach(n => {
       const val = mean + n * stdDev;
-      if (val >= 0) {
+      if (val >= xMin && val <= xMax) {
         annotations['sd' + n] = {
           ...lineStyle,
-          yMin: val, yMax: val,
-          borderColor: 'rgba(255,255,255,0.2)',
-          label: { ...lineStyle.label, content: (n > 0 ? '+' : '') + n + 'σ ' + val.toFixed(0), color: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(0,0,0,0.6)' }
+          xMin: val, xMax: val,
+          borderColor: 'rgba(255,255,255,0.15)',
+          label: { ...lineStyle.label, content: (n > 0 ? '+' : '') + n + 'σ', color: 'rgba(255,255,255,0.35)', backgroundColor: 'rgba(0,0,0,0.6)' }
         };
       }
     });
 
     const canvas = document.getElementById('dist-chart');
     distChart = new Chart(canvas, {
-      type: 'bar',
+      type: 'scatter',
       data: {
-        labels,
-        datasets: [{
-          data,
-          backgroundColor: bgColors,
-          borderColor: borderColors,
-          borderWidth: 1,
-          borderRadius: 3,
-        }]
+        datasets: [...bandDatasets, curveDataset, userDataset]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        indexAxis: 'x',
         plugins: {
           legend: { display: false },
           annotation: { annotations },
           tooltip: {
+            filter: function(item) { return item.datasetIndex === bandDatasets.length + 1; },
             callbacks: {
+              title: function(items) {
+                if (!items.length) return '';
+                return userPoints[items[0].dataIndex].name;
+              },
               label: function(ctx) {
-                const u = sorted[ctx.dataIndex];
+                const u = userPoints[ctx.dataIndex];
                 return 'Score: ' + u.score.toFixed(0) + ' (' + (u.z >= 0 ? '+' : '') + u.z.toFixed(2) + 'σ)';
               }
             },
@@ -1798,27 +1862,35 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
         },
         scales: {
           x: {
-            ticks: { color: '#777', font: { family: 'IBM Plex Mono', size: 10 }, maxRotation: 45, minRotation: 25 },
+            type: 'linear',
+            min: xMin,
+            max: xMax,
+            ticks: { color: '#555', font: { family: 'IBM Plex Mono', size: 10 }, callback: function(v) { return v.toFixed(0); } },
             grid: { color: 'rgba(255,255,255,0.04)' },
+            title: { display: true, text: 'Score', color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
           },
           y: {
             beginAtZero: true,
-            ticks: { color: '#555', font: { family: 'IBM Plex Mono', size: 10 } },
-            grid: { color: 'rgba(255,255,255,0.06)' },
-            title: { display: true, text: 'Score', color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
+            ticks: { display: false },
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            title: { display: true, text: 'Density', color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
           }
         }
       }
     });
 
+    // Legend
     const legendEl = document.getElementById('dist-legend');
-    const usedBands = new Set(sorted.map(u => getBand(u.z)));
-    legendEl.innerHTML = Object.entries(bandColors)
-      .filter(([k]) => usedBands.has(k))
-      .map(([, v]) =>
+    const usedBands = new Set(sorted.map(u => {
+      const b = getBandForZ(u.z);
+      return bandDefs.indexOf(b);
+    }));
+    legendEl.innerHTML = bandDefs
+      .filter((_, i) => usedBands.has(i))
+      .map(b =>
         '<div class="dist-legend-item">'
-          + '<div class="dist-legend-swatch" style="background:' + v.border + '"></div>'
-          + '<span>' + v.label + '</span>'
+          + '<div class="dist-legend-swatch" style="background:' + b.border + '"></div>'
+          + '<span>' + b.label + '</span>'
         + '</div>'
       ).join('');
   }

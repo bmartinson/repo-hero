@@ -15,8 +15,11 @@ A configurable CLI toolkit for analyzing the health of git repositories and thei
 - **Scoring engine** — configurable weighted formula across PRs, commits, reviews, LOC, and files touched (see [`score.js`](score.js))
 - **PR prediction enrichment** — for historical periods without pull requests, Repo Hero learns each user's commits-per-PR ratio and synthesizes predicted PR counts
 - **Positive outlier detection** — users performing > 1.5σ above the mean on any metric are flagged with a 🔥 badge; click the badge to see the exact z-score and explanation
-- **Bell curve distribution** — Gaussian curve visualization of team score distribution with σ-band shading and individual user markers
-- **Repository breakdown** — per-user doughnut charts showing contribution distribution across repositories (PRs, reviews, commits)
+- **Repository popularity** — repos with contribution scores > 1σ above the mean are flagged with a ⭐ badge on the Repos tab
+- **Bell curve distribution** — Gaussian curve visualization of team score distribution with σ-band shading and individual user markers; follows the active Sort By metric
+- **Repository breakdown** — per-user doughnut charts showing contribution distribution across repositories, plus a dedicated Repos tab ranking all repositories by contribution share
+- **Consistent user colors** — chart colors are assigned by overall score rank, so the same person keeps the same color across all metric widgets
+- **URL state persistence** — tab, scope, sort, and open profile are stored in URL query parameters so a page refresh restores your exact view
 - **Methodology page** — built-in documentation tab explaining scoring formulas, PR prediction, and outlier detection (auto-synced with `score.js` weights)
 - **Alias consolidation** — map multiple git identities to a single person
 - **Re-indexer** — retroactively apply alias or ignore-user changes to all historical result files
@@ -176,19 +179,26 @@ The Users tab includes a Gaussian bell curve visualization showing where each co
 
 ## Dashboard
 
-The dashboard is a self-contained HTML file with a dark, console-style theme inspired by NASA mission control interfaces. It includes three tabs:
+The dashboard is a self-contained HTML file with a dark, console-style theme inspired by NASA mission control interfaces. It includes four tabs:
 
 ### Dashboard Tab
 - **Trend charts** — Score, Pull Requests, Reviews, Commits, LOC, Files Touched, Active Users, Team Score
 - **Top 5 leaderboards** — Per metric, updated when the time scope changes
 
 ### Users Tab
-- **Contributor grid** — All active users ranked by score with outlier badges
+- **Contributor grid** — All active users ranked by the selected Sort By metric, with outlier badges
+- **Consistent colors** — Each user keeps the same color across all chart widgets based on their overall score rank
 - **User profiles** — Click any user card to see:
   - Full history with per-metric line charts
-  - Collapsible per-period contribution breakdown table
+  - Paginated per-period contribution breakdown table (100 per page, newest first)
   - Repository breakdown doughnut charts (PRs, reviews, commits by repo)
-- **Score distribution** — Bell curve showing where each user falls relative to the team
+- **Score distribution** — Bell curve showing where each user falls relative to the team, synced to the active Sort By metric
+
+### Repos Tab
+- **Repository grid** — All repositories ranked by weighted contribution share across the selected scope
+- **Contribution percentage** — Each card shows its share of total engineering effort with a visual progress bar
+- **Metric breakdown** — PRs, Reviews, Commits, LOC, Files Touched, and contributor count per repo
+- **Popularity badges** — Repos with contribution scores > 1σ above average are flagged with a ⭐ badge
 
 ### Methodology Tab
 - **Scoring formula** — Exact weights and calculation logic (auto-synced from `score.js`)
@@ -199,7 +209,12 @@ The dashboard is a self-contained HTML file with a dark, console-style theme ins
 ### Time Scope Filter
 Available on all tabs: **1W** (default) / 2W / 3W / 1M / 2M / 3M / 6M / 1Y / All
 
-The x-axis labels adapt automatically: daily for week ranges, monthly for longer ranges, yearly for multi-year views.
+The x-axis labels adapt automatically: weekly for short ranges (e.g. "Apr 1 '25"), monthly for longer ranges, yearly for multi-year views.
+
+### URL State Persistence
+Tab, scope, sort, and open user profile are persisted in URL query parameters. Refreshing the page restores your exact view. Parameters at default values are omitted to keep URLs clean.
+
+Example: `?tab=users&scope=90&sort=reviews` — Users tab, 3M scope, sorted by reviews.
 
 ### Header & Footer
 - Header shows the Repo Hero logo, period count, and last-generated timestamp

@@ -137,3 +137,4 @@ config.json
 cache.json
 **/.results_cache/
 **/.results_history*
+deploy-scripts/

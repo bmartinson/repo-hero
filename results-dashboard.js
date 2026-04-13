@@ -1613,18 +1613,21 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   function getTeamSummary(periods) {
     const filtered = DATA.team.filter(t => periods.includes(t.periodId));
-    if (filtered.length === 0) return { teamScore:0, activeUsers:0, totalPullRequests:0, totalCommits:0 };
+    if (filtered.length === 0) return { teamScore:0, activeUsers:0, totalPullRequests:0, totalReviews:0, totalCommits:0 };
     const avg = (key) => filtered.reduce((s,t) => s + t[key], 0) / filtered.length;
 
     // Count unique users who had any activity across all scoped periods
     const activeSet = new Set();
+    let totalReviews = 0;
     Object.keys(DATA.users).forEach(name => {
       const ud = DATA.users[name];
       for (const pid of periods) {
         const d = ud.data[pid];
-        if (d && (d.commits > 0 || d.pullRequests > 0 || d.reviews > 0)) {
-          activeSet.add(name);
-          break;
+        if (d) {
+          totalReviews += d.reviews || 0;
+          if (d.commits > 0 || d.pullRequests > 0 || d.reviews > 0) {
+            activeSet.add(name);
+          }
         }
       }
     });
@@ -1633,6 +1636,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       teamScore: avg('teamScore'),
       activeUsers: activeSet.size,
       totalPullRequests: filtered.reduce((s,t) => s + t.totalPullRequests, 0),
+      totalReviews,
       totalCommits: filtered.reduce((s,t) => s + t.totalCommits, 0),
     };
   }
@@ -1766,6 +1770,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       { label: 'Avg Team Score', value: summary.teamScore, prev: prevSummary.teamScore, fmt: v => v.toFixed(1) },
       { label: 'Active Users', value: summary.activeUsers, prev: prevSummary.activeUsers, fmt: v => v },
       { label: 'Total PRs', value: summary.totalPullRequests, prev: prevSummary.totalPullRequests, fmt: formatNum },
+      { label: 'Total Reviews', value: summary.totalReviews, prev: prevSummary.totalReviews, fmt: formatNum },
       { label: 'Total Commits', value: summary.totalCommits, prev: prevSummary.totalCommits, fmt: formatNum },
     ];
 

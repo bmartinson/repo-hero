@@ -348,20 +348,41 @@ async function fetchAllPullRequests(repo) {
         `/search/issues?q=repo:${repo.replace('@', '')}+draft:false+is:pr+created:${_START_DATE}..${_END_DATE}`,
         {
           params: {
-            per_page: 100, // Maximum number of results per page
+            per_page: 100,
             page: page,
           },
         }
       );
 
+      // Handle rate-limit or non-200 responses with retry
+      if (response?.status === 403 || response?.status === 429) {
+        const retryAfter = parseInt(response.headers?.['retry-after'] || '60', 10);
+        console.warn(`${_cFgYellow}Search rate limit hit for ${repo}, waiting ${retryAfter}s...${_cReset}`);
+        await new Promise(r => setTimeout(r, retryAfter * 1000));
+        continue; // retry same page
+      }
+
+      if (!response?.data?.items) {
+        console.warn(`${_cFgYellow}Unexpected search response for ${repo} page ${page}, skipping${_cReset}`);
+        hasMorePages = false;
+        continue;
+      }
+
       pullRequests = pullRequests.concat(response.data.items);
 
       // Check if there are more pages
-      const linkHeader = response.headers.link;
+      const linkHeader = response.headers?.link;
       hasMorePages = linkHeader && linkHeader.includes('rel="next"');
       page++;
     } catch (error) {
-      console.error('Error fetching pull requests:', error);
+      // Retry once on rate-limit errors
+      if (error?.response?.status === 403 || error?.response?.status === 429) {
+        const retryAfter = parseInt(error.response.headers?.['retry-after'] || '60', 10);
+        console.warn(`${_cFgYellow}Search rate limit hit for ${repo}, waiting ${retryAfter}s...${_cReset}`);
+        await new Promise(r => setTimeout(r, retryAfter * 1000));
+        continue;
+      }
+      console.error('Error fetching pull requests:', error.message || error);
       hasMorePages = false;
     }
   }
@@ -524,7 +545,7 @@ function _configureApp() {
       }
     );
 
-    // create a specific API instance for a slower search rate limit (30 per minute)
+    // create a specific API instance for the slower search rate limit (30 per minute)
     _GITHUB_SEARCH_API = rateLimit(
       axios.create({
         baseURL: 'https://api.github.com',
@@ -534,8 +555,8 @@ function _configureApp() {
         },
       }),
       {
-        maxRequests: 30,
-        perMilliseconds: 30000,
+        maxRequests: 28,
+        perMilliseconds: 60000,
       }
     );
 

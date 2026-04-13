@@ -140,6 +140,8 @@ files.forEach(file => {
         filesTouched: 0,
         reviews: 0,
         score: 0,
+        predictedPullRequests: 0,
+        repoBreakdown: {},
       };
     } else if (oldName !== newName || merged[newName]._seen) {
       fileMerges++;
@@ -152,11 +154,30 @@ files.forEach(file => {
     merged[newName].loc += user.loc || 0;
     merged[newName].filesTouched += user.filesTouched || 0;
     merged[newName].reviews += user.reviews || 0;
+    merged[newName].predictedPullRequests += user.predictedPullRequests || 0;
+
+    // Merge repoBreakdown
+    if (user.repoBreakdown) {
+      Object.entries(user.repoBreakdown).forEach(([repo, rb]) => {
+        if (!merged[newName].repoBreakdown[repo]) {
+          merged[newName].repoBreakdown[repo] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+        }
+        merged[newName].repoBreakdown[repo].pullRequests += rb.pullRequests || 0;
+        merged[newName].repoBreakdown[repo].reviews += rb.reviews || 0;
+        merged[newName].repoBreakdown[repo].commits += rb.commits || 0;
+        merged[newName].repoBreakdown[repo].loc += rb.loc || 0;
+        merged[newName].repoBreakdown[repo].filesTouched += rb.filesTouched || 0;
+      });
+    }
   });
 
   // Step 2: Re-calculate scores
   Object.values(merged).forEach(user => {
     delete user._seen;
+    // Remove predictedPullRequests if zero (enricher will recalculate)
+    if (!user.predictedPullRequests) delete user.predictedPullRequests;
+    // Remove empty repoBreakdown
+    if (Object.keys(user.repoBreakdown).length === 0) delete user.repoBreakdown;
     user.score = calculateScore(user);
   });
 

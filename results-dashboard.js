@@ -869,7 +869,7 @@ header {
 }
 
 .breakdown-table-wrap.open {
-  max-height: 2000px;
+  max-height: none;
 }
 
 .breakdown-table {
@@ -914,6 +914,36 @@ header {
   border-top: 1px solid var(--fg-dim);
   color: var(--fg-bright);
   font-weight: 700;
+}
+
+.breakdown-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 8px 0;
+}
+
+.pager-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 5px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.pager-btn:hover:not(:disabled) { color: var(--fg-bright); border-color: var(--fg-dim); }
+.pager-btn:disabled { opacity: 0.3; cursor: default; }
+
+.pager-info {
+  font-size: 11px;
+  color: var(--fg-dim);
+  letter-spacing: 0.5px;
 }
 
 /* ─── Repository Breakdown Pie Charts ────────────────────────────────────── */
@@ -1472,6 +1502,8 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   let profileCharts = {};
   let distChart = null;
   let userColorMap = {}; // name → color (stable across metrics)
+  let breakdownState = null; // { periods, userName, ud, totals, page }
+  const BREAKDOWN_PAGE_SIZE = 100;
 
   // Build a stable user→color map from score-ranked users so the same
   // person keeps the same color regardless of their rank in each metric.
@@ -1517,12 +1549,11 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     const e = parseDate(p.endDate);
     const span = daysBetween(s, e);
     const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const yr = " '" + String(s.getFullYear()).slice(2);
     if (span <= 7) {
-      // Weekly: "Apr 1"
-      return mo[s.getMonth()] + ' ' + s.getDate();
+      return mo[s.getMonth()] + ' ' + s.getDate() + yr;
     } else if (span <= 31) {
-      // Monthly: "Jan '24"
-      return mo[s.getMonth()] + " '" + String(s.getFullYear()).slice(2);
+      return mo[s.getMonth()] + yr;
     } else {
       // Yearly or custom: "2024"
       return String(s.getFullYear());
@@ -2185,39 +2216,15 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     });
     html += '</div>';
 
-    // ─── Per-period breakdown table ──────────────────────────────────────
+    // ─── Per-period breakdown table (paginated) ─────────────────────────
+    breakdownState = { periods: periods.slice().reverse(), userName, ud, totals, page: 0 };
+
     html += '<div class="profile-breakdown">';
     html += '<button class="breakdown-toggle" onclick="this.classList.toggle(\\'open\\');this.nextElementSibling.classList.toggle(\\'open\\')">'
       + '<span class="caret">▶</span> CONTRIBUTION BREAKDOWN (' + periods.length + ' periods)</button>';
     html += '<div class="breakdown-table-wrap">';
-    html += '<table class="breakdown-table">';
-    html += '<thead><tr><th>Period</th>';
-    METRICS.forEach(m => { html += '<th>' + m.label + '</th>'; });
-    html += '</tr></thead><tbody>';
-
-    periods.forEach(pid => {
-      const p = ALL_PERIODS.find(x => x.id === pid);
-      const d = ud && ud.data[pid];
-      const periodLabel = formatPeriodLabel(pid);
-      const dateRange = p ? p.startDate + ' → ' + p.endDate : pid;
-      html += '<tr title="' + dateRange + '"><td>' + periodLabel + '</td>';
-      METRICS.forEach(m => {
-        let val = 0;
-        if (d) {
-          if (m.key === 'effectivePRs') val = d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
-          else val = d[m.key] || 0;
-        }
-        html += '<td>' + m.format(val) + '</td>';
-      });
-      html += '</tr>';
-    });
-
-    // Totals row
-    html += '<tr class="total-row"><td>TOTAL</td>';
-    METRICS.forEach(m => { html += '<td>' + m.format(totals[m.key]) + '</td>'; });
-    html += '</tr>';
-
-    html += '</tbody></table></div></div>';
+    html += '<div id="breakdown-content"></div>';
+    html += '</div></div>';
 
     // ─── Repository breakdown pie chart ──────────────────────────────────
     const repoTotals = {};
@@ -2248,6 +2255,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     }
 
     panel.innerHTML = html;
+    renderBreakdownPage();
     overlay.classList.add('visible');
     pushState();
 
@@ -2331,6 +2339,60 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
         }
       }
     }
+  };
+
+  function renderBreakdownPage() {
+    const s = breakdownState;
+    if (!s) return;
+    const container = document.getElementById('breakdown-content');
+    if (!container) return;
+
+    const totalPages = Math.max(1, Math.ceil(s.periods.length / BREAKDOWN_PAGE_SIZE));
+    const page = Math.min(s.page, totalPages - 1);
+    const start = page * BREAKDOWN_PAGE_SIZE;
+    const pageItems = s.periods.slice(start, start + BREAKDOWN_PAGE_SIZE);
+
+    let t = '<table class="breakdown-table"><thead><tr><th>Period</th>';
+    METRICS.forEach(m => { t += '<th>' + m.label + '</th>'; });
+    t += '</tr></thead><tbody>';
+
+    pageItems.forEach(pid => {
+      const p = ALL_PERIODS.find(x => x.id === pid);
+      const d = s.ud && s.ud.data[pid];
+      const periodLabel = formatPeriodLabel(pid);
+      const dateRange = p ? p.startDate + ' → ' + p.endDate : pid;
+      t += '<tr title="' + dateRange + '"><td>' + periodLabel + '</td>';
+      METRICS.forEach(m => {
+        let val = 0;
+        if (d) {
+          if (m.key === 'effectivePRs') val = d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
+          else val = d[m.key] || 0;
+        }
+        t += '<td>' + m.format(val) + '</td>';
+      });
+      t += '</tr>';
+    });
+
+    t += '<tr class="total-row"><td>TOTAL</td>';
+    METRICS.forEach(m => { t += '<td>' + m.format(s.totals[m.key]) + '</td>'; });
+    t += '</tr></tbody></table>';
+
+    if (totalPages > 1) {
+      const showing = 'Showing ' + (start + 1) + '–' + (start + pageItems.length) + ' of ' + s.periods.length + ' periods';
+      t += '<div class="breakdown-pager">';
+      t += '<button class="pager-btn" onclick="setBreakdownPage(' + (page - 1) + ')"' + (page === 0 ? ' disabled' : '') + '>◂ Prev</button>';
+      t += '<span class="pager-info">' + showing + '</span>';
+      t += '<button class="pager-btn" onclick="setBreakdownPage(' + (page + 1) + ')"' + (page >= totalPages - 1 ? ' disabled' : '') + '>Next ▸</button>';
+      t += '</div>';
+    }
+
+    container.innerHTML = t;
+  }
+
+  window.setBreakdownPage = function(page) {
+    if (!breakdownState) return;
+    breakdownState.page = Math.max(0, page);
+    renderBreakdownPage();
   };
 
   window.closeProfile = function() {

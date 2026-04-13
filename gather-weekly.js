@@ -155,6 +155,22 @@ const existingFiles = new Set(
     : []
 );
 
+// Always re-gather the most recent week so in-progress data stays fresh.
+// The latest week's file was gathered at some prior point but may be stale
+// since commits and PRs accumulate throughout the week.
+if (weeks.length > 0) {
+  const latest = weeks[weeks.length - 1];
+  const latestFile = `${latest.start}_${latest.end}.json`;
+  const latestPath = path.join(resultsDir, latestFile);
+  if (existingFiles.has(latestFile)) {
+    console.log(
+      `${C.yellow}Refreshing most recent week: ${latestFile}${C.reset}`
+    );
+    fs.unlinkSync(latestPath);
+    existingFiles.delete(latestFile);
+  }
+}
+
 const pending = weeks.filter(
   w => !existingFiles.has(`${w.start}_${w.end}.json`)
 );

@@ -191,7 +191,11 @@ async function getFromGitHubAPI(req, options) {
 
       try {
         const files = fs.readdirSync(cacheDir);
-        const jsonFiles = files.filter(file => path.extname(file) === '.json');
+        // Sort alphabetically so that cache_{timestamp}_... files are read in
+        // chronological order — the last entry for any given key wins.
+        const jsonFiles = files
+          .filter(file => path.extname(file) === '.json')
+          .sort();
 
         if (jsonFiles.length > 0) {
           jsonFiles.forEach(file => {
@@ -230,11 +234,6 @@ async function getFromGitHubAPI(req, options) {
   }
 
   try {
-    // Generate the unique filename for results caching
-    const timestamp = Date.now();
-    const uuid = uuidv4();
-    const filename = `cache_${timestamp}_${uuid}.json`;
-
     if (options) {
       console.log(
         `Fetching data from GitHub API: ${_cFgBlue}${req}${_cReset} with options: ${JSON.stringify(options)}`
@@ -242,10 +241,6 @@ async function getFromGitHubAPI(req, options) {
     } else {
       console.log(`Fetching data from GitHub API: ${_cFgBlue}${req}${_cReset}`);
     }
-
-    console.log(
-      `  ${_cFgGray}Cached at: ./results_cache/${filename}${_cReset}\n`
-    );
 
     const response = req.startsWith('/search/')
       ? await _GITHUB_SEARCH_API.get(req, options)
@@ -256,6 +251,10 @@ async function getFromGitHubAPI(req, options) {
     }
 
     _CACHE[key] = { data: response.data, headers: response.headers };
+
+    const timestamp = Date.now();
+    const uuid = uuidv4();
+    const filename = `cache_${timestamp}_${uuid}.json`;
 
     const saveData = {};
     saveData[key] = _CACHE[key];
@@ -268,11 +267,12 @@ async function getFromGitHubAPI(req, options) {
       fs.mkdirSync(cacheDir);
     }
 
-    // Create the filename with the current Unix timestamp
-    const cacheFilePath = path.join(cacheDir, filename);
+    console.log(
+      `  ${_cFgGray}Cached at: ./results_cache/${filename}${_cReset}\n`
+    );
 
     // Write the JSON string to cache_xxx_yyy.json
-    fs.writeFile(cacheFilePath, cacheData, () => {});
+    fs.writeFile(path.join(cacheDir, filename), cacheData, () => {});
 
     return response;
   } catch (error) {

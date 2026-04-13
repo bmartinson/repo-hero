@@ -682,36 +682,6 @@ header {
   margin-bottom: 16px;
 }
 
-.dist-metric-bar {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin-bottom: 12px;
-  position: relative;
-}
-
-.dist-metric-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--fg-dim);
-  font-family: var(--font);
-  font-size: 10px;
-  padding: 4px 10px;
-  border-radius: var(--radius);
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-
-.dist-metric-btn:hover { color: var(--fg-bright); border-color: var(--fg-dim); }
-
-.dist-metric-btn.active {
-  color: var(--fg-cyan);
-  border-color: var(--fg-cyan);
-  background: rgba(0, 221, 204, 0.08);
-}
-
 .dist-chart-wrap {
   position: relative;
   width: 100%;
@@ -1274,18 +1244,6 @@ body::after {
     <!-- Score Distribution -->
     <div class="dist-section" id="dist-section">
       <div class="dist-title" id="dist-title">SCORE DISTRIBUTION</div>
-      <div class="dist-metric-bar" id="dist-metric-bar">
-        <button class="scroll-arrow scroll-left" onclick="scrollBtns(this)" aria-label="Scroll left">◂</button>
-        <div class="scrollable-btns">
-          <button class="dist-metric-btn active" data-metric="score" onclick="setDistMetric('score')">Score</button>
-          <button class="dist-metric-btn" data-metric="effectivePRs" onclick="setDistMetric('effectivePRs')">PRs</button>
-          <button class="dist-metric-btn" data-metric="reviews" onclick="setDistMetric('reviews')">Reviews</button>
-          <button class="dist-metric-btn" data-metric="commits" onclick="setDistMetric('commits')">Commits</button>
-          <button class="dist-metric-btn" data-metric="loc" onclick="setDistMetric('loc')">LOC</button>
-          <button class="dist-metric-btn" data-metric="filesTouched" onclick="setDistMetric('filesTouched')">Files</button>
-        </div>
-        <button class="scroll-arrow scroll-right" onclick="scrollBtns(this)" aria-label="Scroll right">▸</button>
-      </div>
       <div class="dist-subtitle" id="dist-subtitle"></div>
       <div class="dist-chart-wrap">
         <canvas id="dist-chart"></canvas>
@@ -1510,7 +1468,6 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   let currentScope = 7; // days (0 = all)
   let currentSort = 'score';
-  let currentDistMetric = 'score';
   let charts = {};
   let profileCharts = {};
   let distChart = null;
@@ -1941,7 +1898,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     // ─── Score Distribution Chart ────────────────────────────────────────
     lastActiveUsers = active;
-    renderDistribution(active, currentDistMetric);
+    renderDistribution(active, sortKeyToDistMetric(currentSort));
   }
 
   let lastActiveUsers = [];
@@ -2399,16 +2356,16 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   // ─── User sort ─────────────────────────────────────────────────────────
 
+  // Map sort keys (used in "Sort by" bar) to distribution metric keys
+  function sortKeyToDistMetric(sortKey) {
+    if (sortKey === 'pullRequests') return 'effectivePRs';
+    return sortKey;
+  }
+
   window.setUserSort = function(key) {
     currentSort = key;
     document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === key));
     renderUsers();
-  };
-
-  window.setDistMetric = function(key) {
-    currentDistMetric = key;
-    document.querySelectorAll('.dist-metric-btn').forEach(b => b.classList.toggle('active', b.dataset.metric === key));
-    renderDistribution(lastActiveUsers, key);
   };
 
   // ─── Render all ────────────────────────────────────────────────────────
@@ -2433,7 +2390,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   };
 
   function updateScrollArrows() {
-    document.querySelectorAll('.filter-bar, .users-sort-bar, .dist-metric-bar').forEach(bar => {
+    document.querySelectorAll('.filter-bar, .users-sort-bar').forEach(bar => {
       const container = bar.querySelector('.scrollable-btns');
       if (!container) return;
       const leftArrow = bar.querySelector('.scroll-left');

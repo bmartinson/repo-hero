@@ -1529,7 +1529,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     cutoff.setDate(cutoff.getDate() - currentScope);
 
     return ALL_PERIODS
-      .filter(p => parseDate(p.startDate) >= cutoff)
+      .filter(p => parseDate(p.endDate) > cutoff)
       .map(p => p.id);
   }
 

@@ -615,6 +615,15 @@ header {
   position: relative;
 }
 
+.popularity-badge {
+  display: inline;
+  font-size: 0.85em;
+  margin-left: 4px;
+  filter: drop-shadow(0 0 4px rgba(255, 200, 0, 0.5));
+  cursor: pointer;
+  vertical-align: baseline;
+}
+
 .fire-popup {
   position: fixed;
   z-index: 2000;
@@ -656,6 +665,79 @@ header {
   color: var(--fg-dim);
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+/* ─── Repos Tab ──────────────────────────────────────────────────────────── */
+
+.repos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+}
+
+.repo-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.repo-card:hover {
+  border-color: var(--fg-info);
+  box-shadow: var(--glow-info);
+}
+
+.repo-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.repo-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.repo-card-pct {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg-cyan);
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+.repo-card-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.repo-card-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--fg-cyan);
+  transition: width 0.3s ease;
+}
+
+.repo-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.repo-card-contributors {
+  margin-top: 12px;
+  font-size: 10px;
+  color: var(--fg-dim);
+  letter-spacing: 0.5px;
 }
 
 /* ─── Score Distribution ─────────────────────────────────────────────────── */
@@ -1102,6 +1184,7 @@ body::after {
   .widget-leaderboard { width: 100%; }
   .widget-chart canvas { height: 180px !important; }
   .users-grid { grid-template-columns: 1fr; }
+  .repos-grid { grid-template-columns: 1fr; }
   .summary-row { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 }
 
@@ -1207,6 +1290,7 @@ body::after {
   <nav class="nav-bar">
     <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">METRICS</button>
     <button class="nav-btn" data-tab="users" onclick="switchTab('users')">USERS</button>
+    <button class="nav-btn" data-tab="repos" onclick="switchTab('repos')">REPOS</button>
     <button class="nav-btn" data-tab="methodology" onclick="switchTab('methodology')">METHODOLOGY</button>
   </nav>
 
@@ -1280,6 +1364,27 @@ body::after {
       </div>
       <div class="dist-legend" id="dist-legend"></div>
     </div>
+  </div>
+
+  <!-- ═══ Repos Tab ═══ -->
+  <div class="tab-panel" id="tab-repos">
+    <div class="filter-bar" id="repos-filter-bar">
+      <span class="label">Scope:</span>
+      <button class="scroll-arrow scroll-left" onclick="scrollBtns(this)" aria-label="Scroll left">◂</button>
+      <div class="scrollable-btns">
+        <button class="scope-btn repos-scope-btn active" data-scope="7" onclick="setScope(7)">1W</button>
+        <button class="scope-btn repos-scope-btn" data-scope="14" onclick="setScope(14)">2W</button>
+        <button class="scope-btn repos-scope-btn" data-scope="21" onclick="setScope(21)">3W</button>
+        <button class="scope-btn repos-scope-btn" data-scope="30" onclick="setScope(30)">1M</button>
+        <button class="scope-btn repos-scope-btn" data-scope="60" onclick="setScope(60)">2M</button>
+        <button class="scope-btn repos-scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
+        <button class="scope-btn repos-scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
+        <button class="scope-btn repos-scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
+        <button class="scope-btn repos-scope-btn" data-scope="0" onclick="setScope(0)">All</button>
+      </div>
+      <button class="scroll-arrow scroll-right" onclick="scrollBtns(this)" aria-label="Scroll right">▸</button>
+    </div>
+    <div class="repos-grid" id="repos-grid"></div>
   </div>
 
   <!-- ═══ Methodology Tab ═══ -->
@@ -1932,6 +2037,85 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     renderDistribution(active, sortKeyToDistMetric(currentSort));
   }
 
+  // ─── Repos Tab ──────────────────────────────────────────────────────────
+
+  function renderRepos() {
+    const periods = getScopedPeriods();
+    const repoTotals = {};
+
+    // Aggregate all user contributions per repo across scoped periods
+    for (const [userName, u] of Object.entries(DATA.users)) {
+      periods.forEach(pid => {
+        const d = u.data[pid];
+        if (!d || !d.repoBreakdown) return;
+        for (const [repo, rb] of Object.entries(d.repoBreakdown)) {
+          if (!repoTotals[repo]) repoTotals[repo] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0, contributors: new Set() };
+          repoTotals[repo].pullRequests += rb.pullRequests || 0;
+          repoTotals[repo].reviews += rb.reviews || 0;
+          repoTotals[repo].commits += rb.commits || 0;
+          repoTotals[repo].loc += rb.loc || 0;
+          repoTotals[repo].filesTouched += rb.filesTouched || 0;
+          if ((rb.pullRequests || 0) + (rb.reviews || 0) + (rb.commits || 0) > 0) {
+            repoTotals[repo].contributors.add(userName);
+          }
+        }
+      });
+    }
+
+    // Compute a weighted contribution score per repo (same weights as user scoring)
+    const repoList = Object.entries(repoTotals).map(([repo, t]) => {
+      const score = (t.pullRequests * (SCORE_WEIGHTS.pullRequests || 0))
+        + (t.reviews * (SCORE_WEIGHTS.reviews || 0))
+        + (t.commits * (SCORE_WEIGHTS.commits || 0))
+        + (t.loc * (SCORE_WEIGHTS.loc || 0))
+        + (t.filesTouched * (SCORE_WEIGHTS.filesTouched || 0));
+      return { repo, score, ...t, contributors: t.contributors.size };
+    }).filter(r => r.score > 0);
+
+    repoList.sort((a, b) => b.score - a.score);
+
+    const totalScore = repoList.reduce((s, r) => s + r.score, 0);
+    const shortName = (r) => r.replace(/^@[^/]+\\//, '');
+
+    // Compute popularity outliers (repos with score ≥ mean + 1.5σ)
+    const popularRepos = {};
+    if (repoList.length >= 3) {
+      const scores = repoList.map(r => r.score);
+      const mean = scores.reduce((s, v) => s + v, 0) / scores.length;
+      const variance = scores.reduce((s, v) => s + (v - mean) ** 2, 0) / scores.length;
+      const stdDev = Math.sqrt(variance);
+      if (stdDev > 0) {
+        repoList.forEach(r => {
+          const z = (r.score - mean) / stdDev;
+          if (z >= 1.0) popularRepos[r.repo] = z.toFixed(1);
+        });
+      }
+    }
+
+    const grid = document.getElementById('repos-grid');
+    grid.innerHTML = repoList.map((r, i) => {
+      const pct = totalScore > 0 ? (r.score / totalScore * 100) : 0;
+      const rankColors = ['rgba(255,170,0,0.15);color:#ffaa00','rgba(200,200,200,0.1);color:#ccc','rgba(205,127,50,0.12);color:#cd7f32'];
+      const rankStyle = i < 3 ? 'background:' + rankColors[i] : 'background:rgba(85,85,85,0.15);color:var(--fg-dim)';
+      const star = popularRepos[r.repo] ? ' <span class="popularity-badge" onclick="event.stopPropagation();showPopularityPopup(event,' + popularRepos[r.repo] + ')">⭐</span>' : '';
+      return '<div class="repo-card">'
+        + '<div class="repo-card-header">'
+          + '<span class="repo-card-name" title="' + r.repo + '">' + shortName(r.repo) + star + '</span>'
+          + '<span class="repo-card-pct">' + pct.toFixed(1) + '%</span>'
+        + '</div>'
+        + '<div class="repo-card-bar"><div class="repo-card-bar-fill" style="width:' + pct.toFixed(1) + '%"></div></div>'
+        + '<div class="repo-card-stats">'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(r.pullRequests) + '</div><div class="stat-label">PRs</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(r.reviews) + '</div><div class="stat-label">Reviews</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(r.commits) + '</div><div class="stat-label">Commits</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(r.loc) + '</div><div class="stat-label">LOC</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + formatNum(r.filesTouched) + '</div><div class="stat-label">Files</div></div>'
+          + '<div class="user-stat"><div class="stat-value">' + r.contributors + '</div><div class="stat-label">Contributors</div></div>'
+        + '</div>'
+      + '</div>';
+    }).join('');
+  }
+
   let lastActiveUsers = [];
 
   function renderDistribution(activeUsers, metricKey) {
@@ -2163,8 +2347,26 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     popup.style.top = top + 'px';
   };
 
+  window.showPopularityPopup = function(e, zScore) {
+    const popup = document.getElementById('fire-popup');
+    const body = document.getElementById('fire-popup-body');
+    body.innerHTML = 'This repository\\'s contribution score is '
+      + '<span class="fire-popup-value">+' + zScore + 'σ</span> above average — '
+      + 'making it one of the most active repos during the selected time range.';
+    popup.classList.add('visible');
+
+    const rect = e.target.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - 130;
+    let top = rect.bottom + 8;
+    if (left < 8) left = 8;
+    if (left + 260 > window.innerWidth) left = window.innerWidth - 268;
+    if (top + 100 > window.innerHeight) top = rect.top - 8 - popup.offsetHeight;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+  };
+
   document.addEventListener('click', function(e) {
-    if (!e.target.closest('.fire-badge')) {
+    if (!e.target.closest('.fire-badge') && !e.target.closest('.popularity-badge')) {
       document.getElementById('fire-popup').classList.remove('visible');
     }
   });
@@ -2440,6 +2642,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
     if (tab === 'users') renderUsers();
+    if (tab === 'repos') renderRepos();
     pushState();
   };
 
@@ -2475,6 +2678,9 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     renderWidgets();
     if (document.getElementById('tab-users').classList.contains('active')) {
       renderUsers();
+    }
+    if (document.getElementById('tab-repos').classList.contains('active')) {
+      renderRepos();
     }
   }
 

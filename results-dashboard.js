@@ -2249,6 +2249,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     panel.innerHTML = html;
     overlay.classList.add('visible');
+    pushState();
 
     // Render profile charts
     Object.values(profileCharts).forEach(c => c.destroy());
@@ -2336,14 +2337,48 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     document.getElementById('profile-overlay').classList.remove('visible');
     Object.values(profileCharts).forEach(c => c.destroy());
     profileCharts = {};
+    pushState();
   };
 
   // ─── Tab switching ─────────────────────────────────────────────────────
+
+  // ─── URL State Persistence ─────────────────────────────────────────────
+
+  function pushState() {
+    const params = new URLSearchParams();
+    if (currentScope !== 7) params.set('scope', currentScope);
+    if (currentSort !== 'score') params.set('sort', currentSort);
+    const activeTab = document.querySelector('.nav-btn.active');
+    const tab = activeTab ? activeTab.dataset.tab : 'dashboard';
+    if (tab !== 'dashboard') params.set('tab', tab);
+    if (document.getElementById('profile-overlay').classList.contains('open')) {
+      const nameEl = document.querySelector('.profile-name');
+      if (nameEl) params.set('profile', nameEl.textContent.toLowerCase());
+    }
+    const qs = params.toString();
+    const url = window.location.pathname + (qs ? '?' + qs : '');
+    window.history.replaceState(null, '', url);
+  }
+
+  function readState() {
+    const params = new URLSearchParams(window.location.search);
+    const scope = params.get('scope');
+    if (scope !== null && !isNaN(+scope)) currentScope = +scope;
+    const sort = params.get('sort');
+    if (sort && ['score','commits','pullRequests','reviews','loc','filesTouched'].includes(sort)) currentSort = sort;
+    return {
+      tab: params.get('tab') || 'dashboard',
+      profile: params.get('profile') || null,
+    };
+  }
+
+  // ─── Tab switching ────────────────────────────────────────────────────
 
   window.switchTab = function(tab) {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
     if (tab === 'users') renderUsers();
+    pushState();
   };
 
   // ─── Scope filter ──────────────────────────────────────────────────────
@@ -2352,6 +2387,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     currentScope = days;
     document.querySelectorAll('.scope-btn').forEach(b => b.classList.toggle('active', +b.dataset.scope === days));
     renderAll();
+    pushState();
   };
 
   // ─── User sort ─────────────────────────────────────────────────────────
@@ -2366,6 +2402,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     currentSort = key;
     document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === key));
     renderUsers();
+    pushState();
   };
 
   // ─── Render all ────────────────────────────────────────────────────────
@@ -2422,7 +2459,23 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     } else {
       rangeEl.textContent = 'NO DATA AVAILABLE';
     }
+
+    // Restore state from URL query parameters
+    const urlState = readState();
+    document.querySelectorAll('.scope-btn').forEach(b => b.classList.toggle('active', +b.dataset.scope === currentScope));
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === currentSort));
+    if (urlState.tab !== 'dashboard') {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === urlState.tab));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + urlState.tab));
+    }
+
     renderAll();
+
+    // Open profile if specified in URL (must happen after render so user data exists)
+    if (urlState.profile && DATA.users[urlState.profile]) {
+      openProfile(urlState.profile);
+    }
+
     setTimeout(updateScrollArrows, 100);
   }
 

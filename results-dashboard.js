@@ -1514,6 +1514,26 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   let charts = {};
   let profileCharts = {};
   let distChart = null;
+  let userColorMap = {}; // name → color (stable across metrics)
+
+  // Build a stable user→color map from score-ranked users so the same
+  // person keeps the same color regardless of their rank in each metric.
+  function buildUserColorMap(periods) {
+    const scored = Object.keys(DATA.users).map(name => ({
+      name,
+      value: getUserTotals(name, periods).score,
+    }));
+    scored.sort((a, b) => b.value - a.value);
+    const map = {};
+    scored.forEach((u, i) => {
+      map[u.name] = CHART_COLORS[i % CHART_COLORS.length];
+    });
+    return map;
+  }
+
+  function getUserColor(name) {
+    return userColorMap[name] || CHART_COLORS[0];
+  }
 
   // ─── Helpers ────────────────────────────────────────────────────────────
 
@@ -1827,7 +1847,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
         const userLabels = allUsers.map(u => u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '));
         const values = allUsers.map(u => u.value);
-        const colors = allUsers.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
+        const colors = allUsers.map(u => getUserColor(u.name));
 
         charts[metric.key] = new Chart(canvas, makeBarChartConfig(userLabels, values, colors, metric.format));
 
@@ -1847,6 +1867,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
         const datasets = top5.map((user, ui) => {
           const ud = DATA.users[user.name];
+          const color = getUserColor(user.name);
           return {
             label: user.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '),
             data: periods.map(p => {
@@ -1855,8 +1876,8 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
               if (metric.key === 'effectivePRs') return d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
               return d[metric.key] || 0;
             }),
-            borderColor: CHART_COLORS[ui % CHART_COLORS.length],
-            backgroundColor: CHART_COLORS[ui % CHART_COLORS.length] + '15',
+            borderColor: color,
+            backgroundColor: color + '15',
             fill: false
           };
         });
@@ -2393,6 +2414,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   // ─── Render all ────────────────────────────────────────────────────────
 
   function renderAll() {
+    userColorMap = buildUserColorMap(getScopedPeriods());
     renderSummary();
     renderWidgets();
     if (document.getElementById('tab-users').classList.contains('active')) {

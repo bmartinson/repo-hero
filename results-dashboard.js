@@ -276,6 +276,8 @@ header {
   white-space: nowrap;
 }
 
+.logo .logo-space { display: inline-block; font-size: 1rem; }
+
 .logo .accent { color: var(--fg-cyan); }
 
 .subtitle {
@@ -1195,7 +1197,7 @@ body::after {
     <div>
       <div class="logo-row">
         <div class="logo-icon">${logoSvg}</div>
-        <div class="logo">Repo <span class="accent">Hero</span></div>
+        <div class="logo">Repo<span class="logo-space">&nbsp;</span><span class="accent">Hero</span></div>
       </div>
       <div class="subtitle" id="data-range"></div>
     </div>
@@ -1434,6 +1436,16 @@ body::after {
           <tr><td>Active Contributors</td><td>Unique users with any commits, PRs, or reviews in the scope.</td></tr>
         </tbody>
       </table>
+
+      <h2 class="meth-heading">⚠ Disclaimer</h2>
+      <p class="meth-text" style="opacity:0.85;">
+        These scores reflect <strong>source control activity only</strong> and do not provide a complete
+        picture of overall job performance. Many valuable contributions fall outside the scope of this
+        tool, including but not limited to: handling support ticket requests, architectural design work,
+        IT tasks such as security reviews or company system management, mentoring, documentation,
+        project planning, and cross-team collaboration. Scores should be used as one data point among
+        many — not as a sole measure of individual contribution.
+      </p>
     </div>
   </div>
 </div>

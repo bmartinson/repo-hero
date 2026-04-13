@@ -155,40 +155,21 @@ const existingFiles = new Set(
     : []
 );
 
-// Always re-gather the most recent week so in-progress data stays fresh.
-// The latest week's file was gathered at some prior point but may be stale
-// since commits and PRs accumulate throughout the week.
-if (weeks.length > 0) {
-  const latest = weeks[weeks.length - 1];
-  const latestFile = `${latest.start}_${latest.end}.json`;
-  const latestPath = path.join(resultsDir, latestFile);
-  if (existingFiles.has(latestFile)) {
-    console.log(
-      `${C.yellow}Refreshing most recent week: ${latestFile}${C.reset}`
-    );
-    fs.unlinkSync(latestPath);
-    existingFiles.delete(latestFile);
+// Always re-gather every week in the range so data stays fresh.
+weeks.forEach(w => {
+  const file = `${w.start}_${w.end}.json`;
+  if (existingFiles.has(file)) {
+    fs.unlinkSync(path.join(resultsDir, file));
+    existingFiles.delete(file);
   }
-}
+});
 
-const pending = weeks.filter(
-  w => !existingFiles.has(`${w.start}_${w.end}.json`)
-);
+const pending = weeks;
 
 console.log(`\n${C.cyan}Repo Hero — Weekly Gather${C.reset}`);
 console.log(
-  `${C.dim}Range: ${startDate} → ${endDate}  (${weeks.length} weeks total)${C.reset}`
+  `${C.dim}Range: ${startDate} → ${endDate}  (${weeks.length} weeks total)${C.reset}\n`
 );
-console.log(
-  `${C.dim}Already gathered: ${weeks.length - pending.length}  |  Remaining: ${pending.length}${C.reset}\n`
-);
-
-if (pending.length === 0) {
-  console.log(
-    `${C.green}All weeks already gathered. Nothing to do.${C.reset}\n`
-  );
-  process.exit(0);
-}
 
 // ─── Run gather for each week ───────────────────────────────────────────────
 let completed = 0;

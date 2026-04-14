@@ -51,7 +51,10 @@ console.log(
   `    ${_cFgGreen}enrich${_cReset}\t(enrich historical data with PR predictions)`
 );
 console.log(
-  `    ${_cFgGreen}reindex${_cReset}\t(re-index for alias/ignore changes)\n`
+  `    ${_cFgGreen}reindex${_cReset}\t(re-index for alias/ignore changes)`
+);
+console.log(
+  `    ${_cFgGreen}cleanup${_cReset}\t(remove orphaned cache files — use --dry to preview)\n`
 );
 console.log(`  ${_cFgYellow}help${_cReset}\t\t(display this menu)`);
 

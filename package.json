@@ -14,6 +14,7 @@
     "chart": "rm -rf .results_history/*.csv && node results-charter.js; node results-team-charter.js; node results-dashboard.js",
     "dashboard": "node results-dashboard.js",
     "reindex": "node results-reindexer.js",
+    "cleanup": "node results-cache-cleanup.js",
     "enrich": "node results-enrich.js",
     "help": "node help.js"
   },

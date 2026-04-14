@@ -102,6 +102,7 @@ npm run config 2024-06
 | `npm run chart`         | Regenerate CSV files and dashboard from combined results                       |
 | `npm run dashboard`     | Regenerate only the HTML dashboard                                             |
 | `npm run reindex`       | Re-apply alias and ignore-user changes to all result files                     |
+| `npm run cleanup`       | Remove orphaned cache files (use `-- --dry` to preview)                        |
 | `npm run config <date>` | Quick-reconfigure `config.json` for a year or month                            |
 | `npm run help`          | Show the command reference in the terminal                                     |
 
@@ -248,6 +249,7 @@ repo-hero/
 ├── active-users-by-date.js   Active user count CSV
 ├── results-dashboard.js      HTML dashboard generator
 ├── results-reindexer.js      Retroactive alias/ignore re-indexer
+├── results-cache-cleanup.js  Prune orphaned result files from cache
 ├── configurator.js           Quick date reconfiguration CLI
 ├── help.js                   Terminal command reference
 ├── runner.sh                 Shell runner script

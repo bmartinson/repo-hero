@@ -204,8 +204,15 @@ async function getFromGitHubAPI(req, options) {
               const fileContent = fs.readFileSync(filePath, 'utf8');
 
               const data = JSON.parse(fileContent);
+              // Extract write timestamp from filename: cache_{timestamp}_{uuid}.json
+              const fileTs = parseInt(file.split('_')[1], 10) || 0;
               Object.keys(data).forEach(dataKey => {
-                _CACHE[dataKey] = data[dataKey];
+                // Preserve any _written_at already stored in the value, or
+                // fall back to the timestamp embedded in the filename.
+                _CACHE[dataKey] = {
+                  ...data[dataKey],
+                  _written_at: data[dataKey]._written_at ?? fileTs,
+                };
               });
             } catch (cacheError) {
               `  ${_cFgGray}Error parsing a cache file. Consider removal of ${path.join(cacheDir, file)}${_cReset}`;
@@ -220,6 +227,23 @@ async function getFromGitHubAPI(req, options) {
   }
 
   if (!_CONFIG?.skipCache && _CACHE[key]) {
+    // Staleness check: for GitHub search queries with a `created:START..END` date
+    // range, skip the cache if it was written before the search window ended.
+    // This prevents zero-result cache entries from when the week was in the future.
+    const rangeMatch = key.match(
+      /created:(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})/
+    );
+    if (rangeMatch) {
+      const searchEndMs = new Date(rangeMatch[2] + 'T23:59:59Z').getTime();
+      if ((_CACHE[key]._written_at ?? 0) < searchEndMs) {
+        delete _CACHE[key]; // stale — fall through to make a fresh API call
+      }
+    }
+  }
+
+  if (!_CONFIG?.skipCache && _CACHE[key]) {
+    // Return cache hit without the internal _written_at metadata
+    const { _written_at, ...cacheVal } = _CACHE[key];
     if (options) {
       console.log(
         `Re-using cached data from GitHub API: ${_cFgYellow}${req}${_cReset} with options: ${JSON.stringify(options)}`
@@ -230,7 +254,7 @@ async function getFromGitHubAPI(req, options) {
       );
     }
 
-    return _CACHE[key];
+    return cacheVal;
   }
 
   try {
@@ -250,7 +274,7 @@ async function getFromGitHubAPI(req, options) {
       return response;
     }
 
-    _CACHE[key] = { data: response.data, headers: response.headers };
+    _CACHE[key] = { data: response.data, headers: response.headers, _written_at: Date.now() };
 
     const timestamp = Date.now();
     const uuid = uuidv4();
@@ -436,6 +460,55 @@ function discoverProject(project) {
 // ----- main execution functions -----
 
 /**
+ * Validates the configured GitHub API token by calling /rate_limit.
+ * - Resolves on success (200) and logs remaining rate-limit quota.
+ * - Rejects with a descriptive error on 401 / 403.
+ * - Resolves on network errors (warn-only, so offline runs are not blocked).
+ *
+ * @returns {Promise<void>}
+ */
+async function _validateToken() {
+  if (!_CONFIG?.tokens?.github) return;
+
+  let response;
+  try {
+    response = await fetch('https://api.github.com/rate_limit', {
+      headers: { Authorization: `token ${_CONFIG.tokens.github}` },
+    });
+  } catch {
+    console.warn(
+      `\n${_cFgYellow}Warning: could not reach GitHub to validate the token (network error). Proceeding anyway.${_cReset}\n`
+    );
+    return;
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    console.error(
+      `\n${_cFgRed}✗ GitHub token is invalid or expired.${_cReset}`
+    );
+    console.error(
+      `  Update ${_cFgYellow}tokens.github${_cReset} in config.json with a new Personal Access Token.`
+    );
+    console.error(`  Generate one at: https://github.com/settings/tokens`);
+    console.error(
+      `  Required scopes: ${_cFgYellow}repo${_cReset} + ${_cFgYellow}read:org${_cReset}\n`
+    );
+    const err = new Error('GitHub token is invalid or expired');
+    err.code = 'TOKEN_INVALID';
+    throw err;
+  }
+
+  const data = await response.json();
+  console.log(`\n${_cFgBlue}GitHub API${_cReset} rate limits:`);
+  console.log(
+    `Used ${data.rate.used} out of ${data.rate.limit} GitHub core requests. Reset time: ${new Date(data.rate.reset * 1000).toLocaleString()}`
+  );
+  console.log(
+    `Used ${data.resources.search.used} out of ${data.resources.search.limit} GitHub search requests. Reset time: ${new Date(data.resources.search.reset * 1000).toLocaleString()}\n`
+  );
+}
+
+/**
  * Function to configure the application based on the configuration file stored
  * at ./config.json.
  */
@@ -560,22 +633,8 @@ function _configureApp() {
       }
     );
 
-    fetch('https://api.github.com/rate_limit', {
-      headers: {
-        Authorization: `token ${_CONFIG.tokens.github}`,
-      },
-    })
-      .then(response => response.json())
-      .then(data => {
-        console.log(`\n${_cFgBlue}GitHub API${_cReset} rate limits:`);
-        console.log(
-          `Used ${data.rate.used} out of ${data.rate.limit} GitHub core requests. Reset time: ${new Date(data.rate.reset * 1000).toLocaleString()}`
-        );
-        console.log(
-          `Used ${data.resources.search.used} out of ${data.resources.search.limit} GitHub search requests. Reset time: ${new Date(data.resources.search.reset * 1000).toLocaleString()}\n`
-        );
-      })
-      .catch(error => console.error('Error!', error));
+    // Token validation and rate-limit display happen in _validateToken(),
+    // called before _processProjects() in the primary execution block.
   } else {
     console.warn(
       'GitHub API token not configured. Consider adding config.json .tokens.github for more stats!'
@@ -986,8 +1045,15 @@ function processUserCommits(packageName, project) {
 // Configuration steps before running the main logic of the script
 _configureApp();
 
-// Process all projects as configured
-_processProjects().finally(() => {
+// Validate the GitHub token, then process projects.
+// If the token is invalid, process.exit(1) fires before .finally() so no
+// partial result file is written and no existing files are overwritten.
+_validateToken()
+  .then(() => _processProjects())
+  .catch(() => {
+    process.exit(1);
+  })
+  .finally(() => {
   // calculate the commits per pull request for the period
   if (!!_RESULTS.totalCommits && !!_RESULTS.totalPullRequests) {
     _RESULTS.commitsPerPullRequest =

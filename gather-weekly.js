@@ -12,6 +12,7 @@
 
 const { execSync } = require('child_process');
 const fs = require('fs');
+const https = require('https');
 const path = require('path');
 
 // ─── Colors ─────────────────────────────────────────────────────────────────
@@ -93,10 +94,73 @@ function generateWeeks(start, end) {
 const weeks = generateWeeks(startDate, endDate);
 const resultsDir = path.join(__dirname, '.results_history');
 
-// ─── Detect and remove overlapping weekly files ─────────────────────────────
-// Remove existing YYYY-MM-DD_YYYY-MM-DD.json files that overlap our target
-// weeks but have different boundaries (from prior runs with different date caps).
-// Only removes files ≤ 14 days to avoid deleting monthly or large-range files.
+// ─── GitHub token validation ─────────────────────────────────────────────────
+
+/**
+ * Validates the GitHub API token by hitting /rate_limit.
+ * Resolves on success (200), rejects with a descriptive error on 401/403.
+ * Network failures are treated as warnings so an offline run is never blocked.
+ *
+ * @param {string} token GitHub Personal Access Token
+ * @returns {Promise<void>}
+ */
+function validateToken(token) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: 'api.github.com',
+        path: '/rate_limit',
+        headers: {
+          Authorization: `token ${token}`,
+          'User-Agent': 'repo-hero',
+        },
+      },
+      res => {
+        res.resume(); // drain the response body
+        if (res.statusCode === 401 || res.statusCode === 403) {
+          reject(new Error('TOKEN_INVALID'));
+          return;
+        }
+        resolve();
+      }
+    );
+    req.on('error', () => {
+      console.warn(
+        `${C.yellow}Warning: could not reach GitHub to validate the token (network error). Proceeding anyway.${C.reset}`
+      );
+      resolve();
+    });
+    req.end();
+  });
+}
+
+// ─── Main async execution ────────────────────────────────────────────────────
+(async () => {
+  // Validate token BEFORE deleting any result files.
+  if (config.tokens?.github) {
+    try {
+      await validateToken(config.tokens.github);
+    } catch {
+      console.error(
+        `\n${C.red}✗ GitHub token is invalid or expired.${C.reset}`
+      );
+      console.error(
+        `  Update ${C.yellow}tokens.github${C.reset} in config.json with a new Personal Access Token.`
+      );
+      console.error(
+        `  Generate one at: https://github.com/settings/tokens`
+      );
+      console.error(
+        `  Required scopes: ${C.yellow}repo${C.reset} + ${C.yellow}read:org${C.reset}\n`
+      );
+      process.exit(1);
+    }
+  }
+
+  // ─── Detect and remove overlapping weekly files ───────────────────────────
+  // Remove existing YYYY-MM-DD_YYYY-MM-DD.json files that overlap our target
+  // weeks but have different boundaries (from prior runs with different date caps).
+  // Only removes files ≤ 14 days to avoid deleting monthly or large-range files.
 
 const expectedFiles = new Set(weeks.map(w => `${w.start}_${w.end}.json`));
 
@@ -198,6 +262,7 @@ pending.forEach((week, i) => {
   }
 });
 
-console.log(
-  `\n${C.green}Weekly gather complete.${C.reset} ${completed} succeeded, ${failed} failed out of ${pending.length} weeks.\n`
-);
+  console.log(
+    `\n${C.green}Weekly gather complete.${C.reset} ${completed} succeeded, ${failed} failed out of ${pending.length} weeks.\n`
+  );
+})();

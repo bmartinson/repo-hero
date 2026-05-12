@@ -242,6 +242,109 @@ if (!fs.existsSync(cacheDir)) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// 3. API response cache — prune pre-dated search entries
+//    Removes search cache entries that were written BEFORE the search window
+//    ended. These arise when gather is run for a date range that extends into
+//    the future: GitHub returns 0 results, we cache that, and subsequent runs
+//    keep serving the stale zero-item response instead of re-querying.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+console.log('━'.repeat(60));
+console.log('  PRE-DATED SEARCH CACHE (.results_cache/ — stale future entries)');
+console.log('━'.repeat(60));
+
+if (!fs.existsSync(cacheDir)) {
+  console.log('  No cache directory found.\n');
+} else {
+  const allCacheFiles = fs
+    .readdirSync(cacheDir)
+    .filter(f => f.endsWith('.json'))
+    .sort(); // chronological order (timestamp in filename)
+
+  if (allCacheFiles.length === 0) {
+    console.log('  No cache files found.\n');
+  } else {
+    // For each search key that has a created:START..END range, track the
+    // latest file that holds it and whether that file is pre-dated.
+    const searchKeyLatest = {}; // key -> { file, ts, items }
+
+    allCacheFiles.forEach(file => {
+      const ts = parseInt(file.split('_')[1], 10);
+      if (isNaN(ts)) return;
+      try {
+        const content = fs.readFileSync(path.join(cacheDir, file), 'utf8');
+        const data = JSON.parse(content);
+        Object.keys(data).forEach(apiKey => {
+          if (!apiKey.includes('created:')) return;
+          if (
+            !searchKeyLatest[apiKey] ||
+            ts > searchKeyLatest[apiKey].ts
+          ) {
+            searchKeyLatest[apiKey] = {
+              file,
+              ts,
+              items: data[apiKey]?.data?.items?.length ?? null,
+            };
+          }
+        });
+      } catch {}
+    });
+
+    // A search cache entry is stale when its write timestamp is before the
+    // search window's end date (meaning it captured a future, empty period).
+    const staleFiles = new Set();
+
+    Object.entries(searchKeyLatest).forEach(([apiKey, { file, ts, items }]) => {
+      const rangeMatch = apiKey.match(
+        /created:(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})/
+      );
+      if (!rangeMatch) return;
+      const searchEndMs = new Date(rangeMatch[2] + 'T23:59:59Z').getTime();
+      if (ts < searchEndMs) {
+        staleFiles.add(file);
+      }
+    });
+
+    if (staleFiles.size === 0) {
+      console.log('  Clean — no pre-dated search cache entries found.\n');
+    } else {
+      let staleBytes = 0;
+      staleFiles.forEach(f => {
+        try {
+          staleBytes += fs.statSync(path.join(cacheDir, f)).size;
+        } catch {}
+      });
+
+      console.log(
+        `  Found ${staleFiles.size.toLocaleString()} pre-dated file${staleFiles.size === 1 ? '' : 's'} (${formatSize(staleBytes)}):`
+      );
+      [...staleFiles].slice(0, 5).forEach(f => {
+        console.log(`    ${f} — cached before search window ended`);
+      });
+      if (staleFiles.size > 5) {
+        console.log(`    ... and ${staleFiles.size - 5} more`);
+      }
+
+      if (!dryRun) {
+        let deleted = 0;
+        staleFiles.forEach(f => {
+          try {
+            fs.unlinkSync(path.join(cacheDir, f));
+            deleted++;
+          } catch {}
+        });
+        totalFreed += staleBytes;
+        totalDeleted += deleted;
+        console.log(
+          `  Deleted ${deleted.toLocaleString()} file${deleted === 1 ? '' : 's'}, freed ${formatSize(staleBytes)}.`
+        );
+      }
+      console.log('');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Summary
 // ═══════════════════════════════════════════════════════════════════════════════
 

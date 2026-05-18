@@ -1310,6 +1310,7 @@ body::after {
         <button class="scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
         <button class="scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
         <button class="scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
+        <button class="scope-btn" data-scope="ytd" onclick="setScope('ytd')">YTD</button>
         <button class="scope-btn" data-scope="0" onclick="setScope(0)">All</button>
       </div>
       <button class="scroll-arrow scroll-right" onclick="scrollBtns(this)" aria-label="Scroll right">▸</button>
@@ -1336,6 +1337,7 @@ body::after {
         <button class="scope-btn users-scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
         <button class="scope-btn users-scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
         <button class="scope-btn users-scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
+        <button class="scope-btn users-scope-btn" data-scope="ytd" onclick="setScope('ytd')">YTD</button>
         <button class="scope-btn users-scope-btn" data-scope="0" onclick="setScope(0)">All</button>
       </div>
       <button class="scroll-arrow scroll-right" onclick="scrollBtns(this)" aria-label="Scroll right">▸</button>
@@ -1380,6 +1382,7 @@ body::after {
         <button class="scope-btn repos-scope-btn" data-scope="90" onclick="setScope(90)">3M</button>
         <button class="scope-btn repos-scope-btn" data-scope="180" onclick="setScope(180)">6M</button>
         <button class="scope-btn repos-scope-btn" data-scope="365" onclick="setScope(365)">1Y</button>
+        <button class="scope-btn repos-scope-btn" data-scope="ytd" onclick="setScope('ytd')">YTD</button>
         <button class="scope-btn repos-scope-btn" data-scope="0" onclick="setScope(0)">All</button>
       </div>
       <button class="scroll-arrow scroll-right" onclick="scrollBtns(this)" aria-label="Scroll right">▸</button>
@@ -1638,6 +1641,15 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
     if (ALL_PERIODS.length === 0) return [];
     if (currentScope === 0) return ALL_PERIOD_IDS; // All time
 
+    // YTD: from Jan 1 of the latest period's year through end
+    if (currentScope === 'ytd') {
+      const latest = parseDate(ALL_PERIODS[ALL_PERIODS.length - 1].endDate);
+      const jan1 = new Date(latest.getFullYear(), 0, 1);
+      return ALL_PERIODS
+        .filter(p => parseDate(p.startDate) >= jan1)
+        .map(p => p.id);
+    }
+
     const latest = parseDate(ALL_PERIODS[ALL_PERIODS.length - 1].endDate);
     const cutoff = new Date(latest);
     cutoff.setDate(cutoff.getDate() - currentScope);
@@ -1864,7 +1876,18 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     // Compute a previous-period summary for delta comparison
     let prevPeriods = [];
-    if (currentScope > 0 && ALL_PERIODS.length > 0) {
+    if (currentScope === 'ytd' && ALL_PERIODS.length > 0) {
+      // YTD comparison: same Jan 1 – same day-of-year from previous year
+      const latest = parseDate(ALL_PERIODS[ALL_PERIODS.length - 1].endDate);
+      const prevYearJan1 = new Date(latest.getFullYear() - 1, 0, 1);
+      const prevYearSameDay = new Date(latest.getFullYear() - 1, latest.getMonth(), latest.getDate());
+      prevPeriods = ALL_PERIODS
+        .filter(p => {
+          const s = parseDate(p.startDate);
+          return s >= prevYearJan1 && s <= prevYearSameDay;
+        })
+        .map(p => p.id);
+    } else if (currentScope > 0 && ALL_PERIODS.length > 0) {
       const latest = parseDate(ALL_PERIODS[ALL_PERIODS.length - 1].endDate);
       const cutoffEnd = new Date(latest);
       cutoffEnd.setDate(cutoffEnd.getDate() - currentScope);
@@ -2627,7 +2650,11 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   function readState() {
     const params = new URLSearchParams(window.location.search);
     const scope = params.get('scope');
-    if (scope !== null && !isNaN(+scope)) currentScope = +scope;
+    if (scope === 'ytd') {
+      currentScope = 'ytd';
+    } else if (scope !== null && !isNaN(+scope)) {
+      currentScope = +scope;
+    }
     const sort = params.get('sort');
     if (sort && ['score','commits','pullRequests','reviews','loc','filesTouched'].includes(sort)) currentSort = sort;
     return {
@@ -2650,7 +2677,10 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   window.setScope = function(days) {
     currentScope = days;
-    document.querySelectorAll('.scope-btn').forEach(b => b.classList.toggle('active', +b.dataset.scope === days));
+    document.querySelectorAll('.scope-btn').forEach(b => {
+      const val = b.dataset.scope;
+      b.classList.toggle('active', val === String(days));
+    });
     renderAll();
     pushState();
   };
@@ -2730,7 +2760,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
     // Restore state from URL query parameters
     const urlState = readState();
-    document.querySelectorAll('.scope-btn').forEach(b => b.classList.toggle('active', +b.dataset.scope === currentScope));
+    document.querySelectorAll('.scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === String(currentScope)));
     document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === currentSort));
     if (urlState.tab !== 'dashboard') {
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === urlState.tab));

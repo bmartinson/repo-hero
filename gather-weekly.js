@@ -35,8 +35,24 @@ let endDate = config.endDate;
 const args = process.argv.slice(2);
 const startIdx = args.indexOf('--start');
 const endIdx = args.indexOf('--end');
+const skipCache =
+  args.includes('--skip-cache') || process.env.npm_config_skip_cache === 'true';
+const noSkipCache =
+  args.includes('--no-skip-cache') ||
+  process.env.npm_config_no_skip_cache === 'true';
+
+if (skipCache && noSkipCache) {
+  console.error(
+    `${C.red}Cannot use both --skip-cache and --no-skip-cache together.${C.reset}`
+  );
+  process.exit(1);
+}
+
 if (startIdx !== -1 && args[startIdx + 1]) startDate = args[startIdx + 1];
 if (endIdx !== -1 && args[endIdx + 1]) endDate = args[endIdx + 1];
+
+if (skipCache) config.skipCache = true;
+if (noSkipCache) config.skipCache = false;
 
 // Cap end date at today so we never query future data
 const today = new Date().toISOString().slice(0, 10);
@@ -147,9 +163,7 @@ function validateToken(token) {
       console.error(
         `  Update ${C.yellow}tokens.github${C.reset} in config.json with a new Personal Access Token.`
       );
-      console.error(
-        `  Generate one at: https://github.com/settings/tokens`
-      );
+      console.error(`  Generate one at: https://github.com/settings/tokens`);
       console.error(
         `  Required scopes: ${C.yellow}repo${C.reset} + ${C.yellow}read:org${C.reset}\n`
       );
@@ -162,105 +176,119 @@ function validateToken(token) {
   // weeks but have different boundaries (from prior runs with different date caps).
   // Only removes files ≤ 14 days to avoid deleting monthly or large-range files.
 
-const expectedFiles = new Set(weeks.map(w => `${w.start}_${w.end}.json`));
+  const expectedFiles = new Set(weeks.map(w => `${w.start}_${w.end}.json`));
 
-if (fs.existsSync(resultsDir)) {
-  const existing = fs.readdirSync(resultsDir).filter(f => f.endsWith('.json'));
-  const dateRangePattern = /^(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})\.json$/;
-  const monthlyPattern = /^(\d{4}-\d{2})\.json$/;
+  if (fs.existsSync(resultsDir)) {
+    const existing = fs
+      .readdirSync(resultsDir)
+      .filter(f => f.endsWith('.json'));
+    const dateRangePattern = /^(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})\.json$/;
+    const monthlyPattern = /^(\d{4}-\d{2})\.json$/;
 
-  existing.forEach(f => {
-    if (expectedFiles.has(f)) return; // exact match — keep
-    const m = f.match(dateRangePattern);
-    if (!m) {
-      // Check if it's a monthly file (YYYY-MM.json) covered by our target weeks
-      const mm = f.match(monthlyPattern);
-      if (mm) {
-        const monthStr = mm[1]; // e.g. "2026-03"
-        const monthStart = monthStr + '-01';
-        const monthEndD = new Date(monthStr + '-01T00:00:00');
-        monthEndD.setMonth(monthEndD.getMonth() + 1);
-        monthEndD.setDate(monthEndD.getDate() - 1);
-        const monthEnd = monthEndD.toISOString().slice(0, 10);
+    existing.forEach(f => {
+      if (expectedFiles.has(f)) return; // exact match — keep
+      const m = f.match(dateRangePattern);
+      if (!m) {
+        // Check if it's a monthly file (YYYY-MM.json) covered by our target weeks
+        const mm = f.match(monthlyPattern);
+        if (mm) {
+          const monthStr = mm[1]; // e.g. "2026-03"
+          const monthStart = monthStr + '-01';
+          const monthEndD = new Date(monthStr + '-01T00:00:00');
+          monthEndD.setMonth(monthEndD.getMonth() + 1);
+          monthEndD.setDate(monthEndD.getDate() - 1);
+          const monthEnd = monthEndD.toISOString().slice(0, 10);
 
-        // Remove the monthly file if our weekly range overlaps this month
-        if (monthStart <= endDate && monthEnd >= startDate) {
-          console.log(
-            `${C.yellow}Removing superseded monthly file: ${f}${C.reset}`
-          );
-          fs.unlinkSync(path.join(resultsDir, f));
+          // Remove the monthly file if our weekly range overlaps this month
+          if (monthStart <= endDate && monthEnd >= startDate) {
+            console.log(
+              `${C.yellow}Removing superseded monthly file: ${f}${C.reset}`
+            );
+            fs.unlinkSync(path.join(resultsDir, f));
+          }
         }
+        return;
       }
-      return;
-    }
 
-    const fStart = m[1];
-    const fEnd = m[2];
-    const spanDays =
-      (new Date(fEnd + 'T00:00:00') - new Date(fStart + 'T00:00:00')) /
-      86400000;
+      const fStart = m[1];
+      const fEnd = m[2];
+      const spanDays =
+        (new Date(fEnd + 'T00:00:00') - new Date(fStart + 'T00:00:00')) /
+        86400000;
 
-    // Only consider files that are roughly week-sized (≤ 14 days)
-    if (spanDays > 14) return;
+      // Only consider files that are roughly week-sized (≤ 14 days)
+      if (spanDays > 14) return;
 
-    // Check if this file's range overlaps any of our target weeks
-    const overlaps = weeks.some(w => fStart <= w.end && fEnd >= w.start);
-    if (overlaps) {
-      console.log(`${C.yellow}Removing stale overlapping file: ${f}${C.reset}`);
-      fs.unlinkSync(path.join(resultsDir, f));
+      // Check if this file's range overlaps any of our target weeks
+      const overlaps = weeks.some(w => fStart <= w.end && fEnd >= w.start);
+      if (overlaps) {
+        console.log(
+          `${C.yellow}Removing stale overlapping file: ${f}${C.reset}`
+        );
+        fs.unlinkSync(path.join(resultsDir, f));
+      }
+    });
+  }
+
+  // Check which weeks already have results
+  const existingFiles = new Set(
+    fs.existsSync(resultsDir)
+      ? fs.readdirSync(resultsDir).filter(f => f.endsWith('.json'))
+      : []
+  );
+
+  // Always re-gather every week in the range so data stays fresh.
+  weeks.forEach(w => {
+    const file = `${w.start}_${w.end}.json`;
+    if (existingFiles.has(file)) {
+      fs.unlinkSync(path.join(resultsDir, file));
+      existingFiles.delete(file);
     }
   });
-}
 
-// Check which weeks already have results
-const existingFiles = new Set(
-  fs.existsSync(resultsDir)
-    ? fs.readdirSync(resultsDir).filter(f => f.endsWith('.json'))
-    : []
-);
+  const pending = weeks;
 
-// Always re-gather every week in the range so data stays fresh.
-weeks.forEach(w => {
-  const file = `${w.start}_${w.end}.json`;
-  if (existingFiles.has(file)) {
-    fs.unlinkSync(path.join(resultsDir, file));
-    existingFiles.delete(file);
+  console.log(`\n${C.cyan}Repo Hero — Weekly Gather${C.reset}`);
+  console.log(
+    `${C.dim}Range: ${startDate} → ${endDate}  (${weeks.length} weeks total)${C.reset}\n`
+  );
+  if (config.skipCache) {
+    console.log(`${C.yellow}Cache mode:${C.reset} skip API response cache\n`);
   }
-});
 
-const pending = weeks;
+  // ─── Run gather for each week ───────────────────────────────────────────────
+  let completed = 0;
+  let failed = 0;
 
-console.log(`\n${C.cyan}Repo Hero — Weekly Gather${C.reset}`);
-console.log(
-  `${C.dim}Range: ${startDate} → ${endDate}  (${weeks.length} weeks total)${C.reset}\n`
-);
+  pending.forEach((week, i) => {
+    const label = `[${i + 1}/${pending.length}] ${week.start} → ${week.end}`;
+    process.stdout.write(`${C.cyan}${label}${C.reset} ... `);
 
-// ─── Run gather for each week ───────────────────────────────────────────────
-let completed = 0;
-let failed = 0;
+    try {
+      const cacheFlags = [
+        skipCache ? '--skip-cache' : '',
+        noSkipCache ? '--no-skip-cache' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
 
-pending.forEach((week, i) => {
-  const label = `[${i + 1}/${pending.length}] ${week.start} → ${week.end}`;
-  process.stdout.write(`${C.cyan}${label}${C.reset} ... `);
-
-  try {
-    execSync(
-      `node gather-and-rank.js --start ${week.start} --end ${week.end}`,
-      {
-        cwd: __dirname,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 10 * 60 * 1000, // 10 min per week
-      }
-    );
-    console.log(`${C.green}done${C.reset}`);
-    completed++;
-  } catch (err) {
-    console.log(`${C.red}failed${C.reset}`);
-    const stderr = err.stderr ? err.stderr.toString().trim() : '';
-    if (stderr) console.log(`  ${C.dim}${stderr.split('\n')[0]}${C.reset}`);
-    failed++;
-  }
-});
+      execSync(
+        `node gather-and-rank.js --start ${week.start} --end ${week.end}${cacheFlags ? ` ${cacheFlags}` : ''}`,
+        {
+          cwd: __dirname,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          timeout: 10 * 60 * 1000, // 10 min per week
+        }
+      );
+      console.log(`${C.green}done${C.reset}`);
+      completed++;
+    } catch (err) {
+      console.log(`${C.red}failed${C.reset}`);
+      const stderr = err.stderr ? err.stderr.toString().trim() : '';
+      if (stderr) console.log(`  ${C.dim}${stderr.split('\n')[0]}${C.reset}`);
+      failed++;
+    }
+  });
 
   console.log(
     `\n${C.green}Weekly gather complete.${C.reset} ${completed} succeeded, ${failed} failed out of ${pending.length} weeks.\n`

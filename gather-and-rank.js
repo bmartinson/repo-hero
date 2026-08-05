@@ -274,7 +274,11 @@ async function getFromGitHubAPI(req, options) {
       return response;
     }
 
-    _CACHE[key] = { data: response.data, headers: response.headers, _written_at: Date.now() };
+    _CACHE[key] = {
+      data: response.data,
+      headers: response.headers,
+      _written_at: Date.now(),
+    };
 
     const timestamp = Date.now();
     const uuid = uuidv4();
@@ -380,14 +384,21 @@ async function fetchAllPullRequests(repo) {
 
       // Handle rate-limit or non-200 responses with retry
       if (response?.status === 403 || response?.status === 429) {
-        const retryAfter = parseInt(response.headers?.['retry-after'] || '60', 10);
-        console.warn(`${_cFgYellow}Search rate limit hit for ${repo}, waiting ${retryAfter}s...${_cReset}`);
+        const retryAfter = parseInt(
+          response.headers?.['retry-after'] || '60',
+          10
+        );
+        console.warn(
+          `${_cFgYellow}Search rate limit hit for ${repo}, waiting ${retryAfter}s...${_cReset}`
+        );
         await new Promise(r => setTimeout(r, retryAfter * 1000));
         continue; // retry same page
       }
 
       if (!response?.data?.items) {
-        console.warn(`${_cFgYellow}Unexpected search response for ${repo} page ${page}, skipping${_cReset}`);
+        console.warn(
+          `${_cFgYellow}Unexpected search response for ${repo} page ${page}, skipping${_cReset}`
+        );
         hasMorePages = false;
         continue;
       }
@@ -401,8 +412,13 @@ async function fetchAllPullRequests(repo) {
     } catch (error) {
       // Retry once on rate-limit errors
       if (error?.response?.status === 403 || error?.response?.status === 429) {
-        const retryAfter = parseInt(error.response.headers?.['retry-after'] || '60', 10);
-        console.warn(`${_cFgYellow}Search rate limit hit for ${repo}, waiting ${retryAfter}s...${_cReset}`);
+        const retryAfter = parseInt(
+          error.response.headers?.['retry-after'] || '60',
+          10
+        );
+        console.warn(
+          `${_cFgYellow}Search rate limit hit for ${repo}, waiting ${retryAfter}s...${_cReset}`
+        );
         await new Promise(r => setTimeout(r, retryAfter * 1000));
         continue;
       }
@@ -572,6 +588,26 @@ function _configureApp() {
   const args = process.argv.slice(2);
   const startIdx = args.indexOf('--start');
   const endIdx = args.indexOf('--end');
+  const skipCache =
+    args.includes('--skip-cache') ||
+    process.env.npm_config_skip_cache === 'true';
+  const noSkipCache =
+    args.includes('--no-skip-cache') ||
+    process.env.npm_config_no_skip_cache === 'true';
+
+  if (skipCache && noSkipCache) {
+    console.error('Cannot use both --skip-cache and --no-skip-cache together.');
+    process.exit(1);
+  }
+
+  if (skipCache) {
+    _CONFIG.skipCache = true;
+  }
+
+  if (noSkipCache) {
+    _CONFIG.skipCache = false;
+  }
+
   if (
     startIdx !== -1 &&
     args[startIdx + 1] &&
@@ -581,6 +617,12 @@ function _configureApp() {
   }
   if (endIdx !== -1 && args[endIdx + 1] && isValidDate(args[endIdx + 1])) {
     _END_DATE = args[endIdx + 1];
+  }
+
+  if (skipCache || noSkipCache) {
+    console.log(
+      `Cache override from CLI: skipCache=${_CONFIG.skipCache ? 'true' : 'false'}`
+    );
   }
 
   // Cap end date at today so we never query future data
@@ -875,7 +917,13 @@ function _processProjects() {
           const repoName = extractRepoName(pr);
           if (repoName) {
             if (!_RESULTS.users[alias].repoBreakdown[repoName]) {
-              _RESULTS.users[alias].repoBreakdown[repoName] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+              _RESULTS.users[alias].repoBreakdown[repoName] = {
+                pullRequests: 0,
+                reviews: 0,
+                commits: 0,
+                loc: 0,
+                filesTouched: 0,
+              };
             }
             _RESULTS.users[alias].repoBreakdown[repoName].pullRequests++;
           }
@@ -906,10 +954,19 @@ function _processProjects() {
                   // Track per-repo loc and filesTouched
                   if (repoName) {
                     if (!_RESULTS.users[alias].repoBreakdown[repoName]) {
-                      _RESULTS.users[alias].repoBreakdown[repoName] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+                      _RESULTS.users[alias].repoBreakdown[repoName] = {
+                        pullRequests: 0,
+                        reviews: 0,
+                        commits: 0,
+                        loc: 0,
+                        filesTouched: 0,
+                      };
                     }
-                    _RESULTS.users[alias].repoBreakdown[repoName].loc += additions + deletions;
-                    _RESULTS.users[alias].repoBreakdown[repoName].filesTouched += changedFiles;
+                    _RESULTS.users[alias].repoBreakdown[repoName].loc +=
+                      additions + deletions;
+                    _RESULTS.users[alias].repoBreakdown[
+                      repoName
+                    ].filesTouched += changedFiles;
                   }
 
                   if (!prdResponse?.data.merged) {
@@ -947,10 +1004,24 @@ function _processProjects() {
 
                           // Track per-repo reviews
                           if (repoName) {
-                            if (!_RESULTS.users[reviewerAlias].repoBreakdown[repoName]) {
-                              _RESULTS.users[reviewerAlias].repoBreakdown[repoName] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+                            if (
+                              !_RESULTS.users[reviewerAlias].repoBreakdown[
+                                repoName
+                              ]
+                            ) {
+                              _RESULTS.users[reviewerAlias].repoBreakdown[
+                                repoName
+                              ] = {
+                                pullRequests: 0,
+                                reviews: 0,
+                                commits: 0,
+                                loc: 0,
+                                filesTouched: 0,
+                              };
                             }
-                            _RESULTS.users[reviewerAlias].repoBreakdown[repoName].reviews++;
+                            _RESULTS.users[reviewerAlias].repoBreakdown[
+                              repoName
+                            ].reviews++;
                           }
                         });
                       }
@@ -1026,9 +1097,16 @@ function processUserCommits(packageName, project) {
           }
           const repoName = project || packageName;
           if (!_RESULTS.users[author].repoBreakdown[repoName]) {
-            _RESULTS.users[author].repoBreakdown[repoName] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+            _RESULTS.users[author].repoBreakdown[repoName] = {
+              pullRequests: 0,
+              reviews: 0,
+              commits: 0,
+              loc: 0,
+              filesTouched: 0,
+            };
           }
-          _RESULTS.users[author].repoBreakdown[repoName].commits += userCommits[author];
+          _RESULTS.users[author].repoBreakdown[repoName].commits +=
+            userCommits[author];
         });
 
         resolve();
@@ -1054,106 +1132,106 @@ _validateToken()
     process.exit(1);
   })
   .finally(() => {
-  // calculate the commits per pull request for the period
-  if (!!_RESULTS.totalCommits && !!_RESULTS.totalPullRequests) {
-    _RESULTS.commitsPerPullRequest =
-      _RESULTS.totalCommits / _RESULTS.totalPullRequests;
-  } else {
-    _RESULTS.commitsPerPullRequest = 0;
-  }
-
-  _RESULTS.predictedPullRequests =
-    _CONFIG.commitsPerPullRequest && !isNaN(_CONFIG.commitsPerPullRequest)
-      ? _RESULTS.totalCommits / _CONFIG.commitsPerPullRequest
-      : _RESULTS.totalCommits / _RESULTS.commitsPerPullRequest;
-  _RESULTS.activeUsers = 0;
-  _RESULTS.teamScore = 0;
-
-  // assess the results for all users
-  if (!!_RESULTS?.users) {
-    Object.keys(_RESULTS.users).forEach(user => {
-      // make sure the name is defined
-      _RESULTS.users[user].name = user;
-
-      // make sure commits is defined
-      if (!_RESULTS.users[user].commits) {
-        _RESULTS.users[user].commits = 0;
-      }
-
-      // make sure reviews are defined
-      if (!_RESULTS.users[user].reviews) {
-        _RESULTS.users[user].reviews = 0;
-      }
-
-      // make sure loc is defined
-      if (!_RESULTS.users[user].loc) {
-        _RESULTS.users[user].loc = 0;
-      }
-
-      // calculate the user score
-      _RESULTS.users[user].score = calculateScore(_RESULTS.users[user]);
-
-      // make sure that the score is defined
-      if (!_RESULTS.users[user].score) {
-        _RESULTS.users[user].score = 0;
-      }
-
-      // we have an active user
-      if (_RESULTS.users[user].score > 0) {
-        _RESULTS.activeUsers++;
-      }
-
-      _RESULTS.teamScore += _RESULTS.users[user].score;
-    });
-
-    // ensure team score is defined and numeric
-    if (!_RESULTS.teamScore) {
-      _RESULTS.teamScore = 0;
-    }
-
-    // Convert the _RESULTS.users object to an array of user objects
-    const usersArray = Object.values(_RESULTS.users);
-
-    // Sort the array by score in descending order
-    usersArray.sort((a, b) => b.score - a.score);
-
-    // Optionally, convert the sorted array back to an object
-    const sortedUsers = {};
-    usersArray.forEach(user => {
-      sortedUsers[user.id] = user; // Assuming each user object has a unique 'id' property
-    });
-
-    // splice out each ignored user
-    if (_CONFIG?.ignoreUsers) {
-      let index = -1;
-      _CONFIG.ignoreUsers.forEach(user => {
-        index = usersArray.findIndex(
-          obj => obj['name'] === user?.toLowerCase()
-        );
-
-        if (index !== -1) {
-          if (usersArray[index]?.score > 0) {
-            // if the ignored user had a score, it was previously counted as active, so reduce
-            _RESULTS.activeUsers--;
-            _RESULTS.teamScore -= usersArray[index].score;
-          }
-
-          usersArray.splice(index, 1);
-        }
-      });
-    }
-
-    // calculate the team score average from the remaining active users
-    if (_RESULTS.activeUsers > 0) {
-      _RESULTS.teamScore /= _RESULTS.activeUsers;
+    // calculate the commits per pull request for the period
+    if (!!_RESULTS.totalCommits && !!_RESULTS.totalPullRequests) {
+      _RESULTS.commitsPerPullRequest =
+        _RESULTS.totalCommits / _RESULTS.totalPullRequests;
     } else {
-      _RESULTS.teamScore = 0;
+      _RESULTS.commitsPerPullRequest = 0;
     }
 
-    // Assign the sorted object back to _RESULTS.users
-    _RESULTS.users = usersArray;
-  }
+    _RESULTS.predictedPullRequests =
+      _CONFIG.commitsPerPullRequest && !isNaN(_CONFIG.commitsPerPullRequest)
+        ? _RESULTS.totalCommits / _CONFIG.commitsPerPullRequest
+        : _RESULTS.totalCommits / _RESULTS.commitsPerPullRequest;
+    _RESULTS.activeUsers = 0;
+    _RESULTS.teamScore = 0;
 
-  // Save results to the hidden directory for later reference
-  _saveResults();
-});
+    // assess the results for all users
+    if (!!_RESULTS?.users) {
+      Object.keys(_RESULTS.users).forEach(user => {
+        // make sure the name is defined
+        _RESULTS.users[user].name = user;
+
+        // make sure commits is defined
+        if (!_RESULTS.users[user].commits) {
+          _RESULTS.users[user].commits = 0;
+        }
+
+        // make sure reviews are defined
+        if (!_RESULTS.users[user].reviews) {
+          _RESULTS.users[user].reviews = 0;
+        }
+
+        // make sure loc is defined
+        if (!_RESULTS.users[user].loc) {
+          _RESULTS.users[user].loc = 0;
+        }
+
+        // calculate the user score
+        _RESULTS.users[user].score = calculateScore(_RESULTS.users[user]);
+
+        // make sure that the score is defined
+        if (!_RESULTS.users[user].score) {
+          _RESULTS.users[user].score = 0;
+        }
+
+        // we have an active user
+        if (_RESULTS.users[user].score > 0) {
+          _RESULTS.activeUsers++;
+        }
+
+        _RESULTS.teamScore += _RESULTS.users[user].score;
+      });
+
+      // ensure team score is defined and numeric
+      if (!_RESULTS.teamScore) {
+        _RESULTS.teamScore = 0;
+      }
+
+      // Convert the _RESULTS.users object to an array of user objects
+      const usersArray = Object.values(_RESULTS.users);
+
+      // Sort the array by score in descending order
+      usersArray.sort((a, b) => b.score - a.score);
+
+      // Optionally, convert the sorted array back to an object
+      const sortedUsers = {};
+      usersArray.forEach(user => {
+        sortedUsers[user.id] = user; // Assuming each user object has a unique 'id' property
+      });
+
+      // splice out each ignored user
+      if (_CONFIG?.ignoreUsers) {
+        let index = -1;
+        _CONFIG.ignoreUsers.forEach(user => {
+          index = usersArray.findIndex(
+            obj => obj['name'] === user?.toLowerCase()
+          );
+
+          if (index !== -1) {
+            if (usersArray[index]?.score > 0) {
+              // if the ignored user had a score, it was previously counted as active, so reduce
+              _RESULTS.activeUsers--;
+              _RESULTS.teamScore -= usersArray[index].score;
+            }
+
+            usersArray.splice(index, 1);
+          }
+        });
+      }
+
+      // calculate the team score average from the remaining active users
+      if (_RESULTS.activeUsers > 0) {
+        _RESULTS.teamScore /= _RESULTS.activeUsers;
+      } else {
+        _RESULTS.teamScore = 0;
+      }
+
+      // Assign the sorted object back to _RESULTS.users
+      _RESULTS.users = usersArray;
+    }
+
+    // Save results to the hidden directory for later reference
+    _saveResults();
+  });

@@ -5,7 +5,7 @@ const resultsDir = path.join(__dirname, '.results_history');
 const cacheDir = path.join(__dirname, '.results_cache');
 const dryRun = process.argv.includes('--dry');
 
-const formatSize = (bytes) => {
+const formatSize = bytes => {
   if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
   if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
   if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -27,7 +27,7 @@ const historyFiles = fs.existsSync(resultsDir)
   ? fs
       .readdirSync(resultsDir)
       .filter(
-        (f) =>
+        f =>
           f.endsWith('.json') &&
           f !== 'combined_results.json' &&
           !f.includes('.DS_Store')
@@ -39,7 +39,7 @@ if (historyFiles.length === 0) {
 } else {
   const allEntries = [];
 
-  historyFiles.forEach((file) => {
+  historyFiles.forEach(file => {
     const filePath = path.join(resultsDir, file);
     let entry;
     try {
@@ -63,7 +63,7 @@ if (historyFiles.length === 0) {
   function resolveOverlaps(entries) {
     const monthMap = {};
 
-    entries.forEach((e) => {
+    entries.forEach(e => {
       const start = new Date(e.startDate + 'T00:00:00');
       const end = new Date(e.endDate + 'T00:00:00');
       let cursor = new Date(start);
@@ -87,11 +87,11 @@ if (historyFiles.length === 0) {
     for (const ym of Object.keys(monthMap)) {
       const { monthly, weekly } = monthMap[ym];
       if (monthly.length > 0 && weekly.length > 0) {
-        monthly.forEach((e) => dropSet.add(e));
+        monthly.forEach(e => dropSet.add(e));
       }
     }
 
-    let result = entries.filter((e) => !dropSet.has(e));
+    let result = entries.filter(e => !dropSet.has(e));
 
     result.sort((a, b) => {
       const cmp = a.startDate.localeCompare(b.startDate);
@@ -117,8 +117,8 @@ if (historyFiles.length === 0) {
   }
 
   const kept = resolveOverlaps(allEntries);
-  const keptFiles = new Set(kept.map((e) => e.file));
-  const orphans = allEntries.filter((e) => !keptFiles.has(e.file));
+  const keptFiles = new Set(kept.map(e => e.file));
+  const orphans = allEntries.filter(e => !keptFiles.has(e.file));
 
   if (orphans.length === 0) {
     console.log(
@@ -126,7 +126,7 @@ if (historyFiles.length === 0) {
     );
   } else {
     let orphanBytes = 0;
-    orphans.forEach((o) => {
+    orphans.forEach(o => {
       const stat = fs.statSync(path.join(resultsDir, o.file));
       orphanBytes += stat.size;
     });
@@ -134,7 +134,7 @@ if (historyFiles.length === 0) {
     console.log(
       `  Found ${orphans.length} orphaned file${orphans.length === 1 ? '' : 's'} (${formatSize(orphanBytes)}):`
     );
-    orphans.forEach((o) => {
+    orphans.forEach(o => {
       const reason =
         o.spanDays >= 27
           ? 'monthly superseded by weekly'
@@ -143,7 +143,7 @@ if (historyFiles.length === 0) {
     });
 
     if (!dryRun) {
-      orphans.forEach((o) => fs.unlinkSync(path.join(resultsDir, o.file)));
+      orphans.forEach(o => fs.unlinkSync(path.join(resultsDir, o.file)));
       totalFreed += orphanBytes;
       totalDeleted += orphans.length;
       console.log(
@@ -167,25 +167,27 @@ if (!fs.existsSync(cacheDir)) {
 } else {
   const cacheFiles = fs
     .readdirSync(cacheDir)
-    .filter((f) => f.endsWith('.json'))
+    .filter(f => f.endsWith('.json'))
     .sort(); // Alphabetical = chronological (timestamp in filename)
 
   if (cacheFiles.length === 0) {
     console.log('  No cache files found.\n');
   } else {
-    console.log(`  Scanning ${cacheFiles.length.toLocaleString()} cache files...`);
+    console.log(
+      `  Scanning ${cacheFiles.length.toLocaleString()} cache files...`
+    );
 
     // For each API request key, track only the latest file that provides it.
     // Files are sorted chronologically, so the last writer wins (same as
     // the cache load in gather-and-rank.js).
     const keyToLatestFile = {}; // apiKey -> filename
 
-    cacheFiles.forEach((file) => {
+    cacheFiles.forEach(file => {
       try {
         const filePath = path.join(cacheDir, file);
         const content = fs.readFileSync(filePath, 'utf8');
         const data = JSON.parse(content);
-        Object.keys(data).forEach((apiKey) => {
+        Object.keys(data).forEach(apiKey => {
           keyToLatestFile[apiKey] = file;
         });
       } catch {
@@ -194,7 +196,7 @@ if (!fs.existsSync(cacheDir)) {
     });
 
     const keeperFiles = new Set(Object.values(keyToLatestFile));
-    const cacheOrphans = cacheFiles.filter((f) => !keeperFiles.has(f));
+    const cacheOrphans = cacheFiles.filter(f => !keeperFiles.has(f));
 
     const uniqueKeys = Object.keys(keyToLatestFile).length;
 
@@ -205,7 +207,7 @@ if (!fs.existsSync(cacheDir)) {
       );
     } else {
       let orphanBytes = 0;
-      cacheOrphans.forEach((f) => {
+      cacheOrphans.forEach(f => {
         try {
           orphanBytes += fs.statSync(path.join(cacheDir, f)).size;
         } catch {}
@@ -218,13 +220,11 @@ if (!fs.existsSync(cacheDir)) {
         `  ${cacheOrphans.length.toLocaleString()} orphaned files (${formatSize(orphanBytes)}) ` +
           `— superseded by newer responses`
       );
-      console.log(
-        `  ${keeperFiles.size.toLocaleString()} files to keep`
-      );
+      console.log(`  ${keeperFiles.size.toLocaleString()} files to keep`);
 
       if (!dryRun) {
         let deleted = 0;
-        cacheOrphans.forEach((f) => {
+        cacheOrphans.forEach(f => {
           try {
             fs.unlinkSync(path.join(cacheDir, f));
             deleted++;
@@ -250,7 +250,9 @@ if (!fs.existsSync(cacheDir)) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 console.log('━'.repeat(60));
-console.log('  PRE-DATED SEARCH CACHE (.results_cache/ — stale future entries)');
+console.log(
+  '  PRE-DATED SEARCH CACHE (.results_cache/ — stale future entries)'
+);
 console.log('━'.repeat(60));
 
 if (!fs.existsSync(cacheDir)) {
@@ -276,10 +278,7 @@ if (!fs.existsSync(cacheDir)) {
         const data = JSON.parse(content);
         Object.keys(data).forEach(apiKey => {
           if (!apiKey.includes('created:')) return;
-          if (
-            !searchKeyLatest[apiKey] ||
-            ts > searchKeyLatest[apiKey].ts
-          ) {
+          if (!searchKeyLatest[apiKey] || ts > searchKeyLatest[apiKey].ts) {
             searchKeyLatest[apiKey] = {
               file,
               ts,

@@ -115,6 +115,16 @@ npm run gather -- --start 2024-06-01 --end 2024-06-30
 npm run gather-weekly -- --start 2024-01-01 --end 2024-12-31
 ```
 
+You can bypass API response cache reads for a run with `--skip-cache`:
+
+```sh
+npm run gather -- --skip-cache
+npm run gather-weekly -- --skip-cache
+npm start -- --skip-cache
+```
+
+If `skipCache` is set in `config.json`, you can force cache usage for a run with `--no-skip-cache`.
+
 If `--end` is later than today's date, it is automatically capped at today.
 
 ---
@@ -153,14 +163,14 @@ npm start
 
 Scores are calculated per user per period using the weights defined in [`score.js`](score.js):
 
-| Metric                 | Weight   | Notes                                                      |
-| ---------------------- | -------- | ---------------------------------------------------------- |
-| Pull Requests          | × 15     | Uses real PRs; falls back to predicted PRs if zero         |
-| Predicted Pull Requests| × 15     | Synthesized from commits-per-PR ratio (used as fallback)   |
-| Reviews                | × 17     | Code reviews authored — weighted highest as a team multiplier |
-| Commits                | × 0.01   | Raw commit count                                           |
-| Lines of Code          | × 0.0001 | Net lines changed (additions + deletions)                  |
-| Files Touched          | × 0.0001 | Unique files modified                                      |
+| Metric                  | Weight   | Notes                                                         |
+| ----------------------- | -------- | ------------------------------------------------------------- |
+| Pull Requests           | × 15     | Uses real PRs; falls back to predicted PRs if zero            |
+| Predicted Pull Requests | × 15     | Synthesized from commits-per-PR ratio (used as fallback)      |
+| Reviews                 | × 17     | Code reviews authored — weighted highest as a team multiplier |
+| Commits                 | × 0.01   | Raw commit count                                              |
+| Lines of Code           | × 0.0001 | Net lines changed (additions + deletions)                     |
+| Files Touched           | × 0.0001 | Unique files modified                                         |
 
 The team score is the average of all non-ignored users' scores for a given period.
 
@@ -183,10 +193,12 @@ The Users tab includes a Gaussian bell curve visualization showing where each co
 The dashboard is a self-contained HTML file with a dark, console-style theme inspired by NASA mission control interfaces. It includes four tabs:
 
 ### Dashboard Tab
+
 - **Trend charts** — Score, Pull Requests, Reviews, Commits, LOC, Files Touched, Active Users, Team Score
 - **Top 5 leaderboards** — Per metric, updated when the time scope changes
 
 ### Users Tab
+
 - **Contributor grid** — All active users ranked by the selected Sort By metric, with outlier badges
 - **Consistent colors** — Each user keeps the same color across all chart widgets based on their overall score rank
 - **User profiles** — Click any user card to see:
@@ -196,28 +208,33 @@ The dashboard is a self-contained HTML file with a dark, console-style theme ins
 - **Score distribution** — Bell curve showing where each user falls relative to the team, synced to the active Sort By metric
 
 ### Repos Tab
+
 - **Repository grid** — All repositories ranked by weighted contribution share across the selected scope
 - **Contribution percentage** — Each card shows its share of total engineering effort with a visual progress bar
 - **Metric breakdown** — PRs, Reviews, Commits, LOC, Files Touched, and contributor count per repo
 - **Popularity badges** — Repos with contribution scores > 1σ above average are flagged with a ⭐ badge
 
 ### Methodology Tab
+
 - **Scoring formula** — Exact weights and calculation logic (auto-synced from `score.js`)
 - **Predicted pull requests** — How the two-pass prediction algorithm works
 - **Outlier detection** — Statistical approach and thresholds
 - **Dashboard metrics** — Reference for all displayed data points
 
 ### Time Scope Filter
+
 Available on all tabs: **1W** (default) / 2W / 3W / 1M / 2M / 3M / 6M / 1Y / All
 
 The x-axis labels adapt automatically: weekly for short ranges (e.g. "Apr 1 '25"), monthly for longer ranges, yearly for multi-year views.
 
 ### URL State Persistence
+
 Tab, scope, sort, and open user profile are persisted in URL query parameters. Refreshing the page restores your exact view. Parameters at default values are omitted to keep URLs clean.
 
 Example: `?tab=users&scope=90&sort=reviews` — Users tab, 3M scope, sorted by reviews.
 
 ### Header & Footer
+
 - Header shows the Repo Hero logo, period count, and last-generated timestamp
 - Footer links to the [project repository](https://github.com/bmartinson/repo-hero) and the developer's website
 

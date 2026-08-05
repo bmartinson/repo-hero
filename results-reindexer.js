@@ -160,13 +160,21 @@ files.forEach(file => {
     if (user.repoBreakdown) {
       Object.entries(user.repoBreakdown).forEach(([repo, rb]) => {
         if (!merged[newName].repoBreakdown[repo]) {
-          merged[newName].repoBreakdown[repo] = { pullRequests: 0, reviews: 0, commits: 0, loc: 0, filesTouched: 0 };
+          merged[newName].repoBreakdown[repo] = {
+            pullRequests: 0,
+            reviews: 0,
+            commits: 0,
+            loc: 0,
+            filesTouched: 0,
+          };
         }
-        merged[newName].repoBreakdown[repo].pullRequests += rb.pullRequests || 0;
+        merged[newName].repoBreakdown[repo].pullRequests +=
+          rb.pullRequests || 0;
         merged[newName].repoBreakdown[repo].reviews += rb.reviews || 0;
         merged[newName].repoBreakdown[repo].commits += rb.commits || 0;
         merged[newName].repoBreakdown[repo].loc += rb.loc || 0;
-        merged[newName].repoBreakdown[repo].filesTouched += rb.filesTouched || 0;
+        merged[newName].repoBreakdown[repo].filesTouched +=
+          rb.filesTouched || 0;
       });
     }
   });

@@ -1548,34 +1548,17 @@ ${
       <h3 class="meth-subheading">What Counts as Resolved</h3>
       <p class="meth-text">
         An issue counts toward a period when it carries a <strong>resolution date inside that period</strong>
-        and currently sits in the <strong>Done</strong> status category. Using the resolution date — rather
+        and currently sits in the <strong>Resolved</strong> status category. Using the resolution date — rather
         than the last-updated timestamp — means an issue is credited to the period in which the work
         actually finished, and reopening an issue later does not silently move history.
       </p>
       <div class="meth-formula">
         resolved = statusCategory(Done) AND resolutiondate ∈ [periodStart, periodEnd]
       </div>
-      <p class="meth-text">
-        Boards that do not follow that convention can override the predicate with a
-        <code>completedJql</code> setting. The project and date-range clauses are always applied on top,
-        so weekly bucketing stays correct regardless of how "done" is defined. Issue types listed in
-        <code>excludeIssueTypes</code> — commonly <em>Epic</em> — are filtered out so that a container
-        closing does not count as delivered work on top of the issues inside it.
-      </p>
 
       <h3 class="meth-subheading">Who Gets Credit</h3>
       <p class="meth-text">
         Credit goes to the issue's <strong>assignee</strong> at the time it is counted, not the reporter.
-        Jira identities are resolved through the <strong>same alias map</strong> used for git and GitHub
-        activity, so a person's resolutions merge into the one record as their commits, pull requests,
-        and reviews. Resolution is attempted in order: <strong>display name</strong>, then email address,
-        then the email's local part, then the account ID.
-      </p>
-      <p class="meth-text">
-        Most Jira Cloud sites withhold user email addresses for privacy, so the <strong>display name</strong>
-        is usually what carries the match — if someone's Jira name differs from their git identity, add it
-        to their alias list. Issues resolved with <strong>no assignee</strong> are counted in the run summary
-        but attributed to nobody, since there is no defensible way to assign credit.
       </p>
 
       <h3 class="meth-subheading">How It Affects Scoring</h3>

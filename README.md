@@ -25,6 +25,7 @@ A configurable CLI toolkit for analyzing the health of git repositories and thei
 - **Re-indexer** — retroactively apply alias or ignore-user changes to all historical result files
 - **Future date capping** — if the configured end date extends past today, it is automatically clamped to the current date
 - **CSV export** — per-user and team-level CSV files for use in spreadsheets or external tools
+- **Email delivery** — optionally attach the portable dashboard to an email and send it to a list of recipients on every run
 
 ---
 
@@ -78,6 +79,68 @@ Create a `config.json` in the project root (it is gitignored). All top-level pro
 }
 ```
 
+### Email Delivery
+
+Optionally email the generated dashboard to one or more recipients. When the
+dashboard is regenerated it is opened in your browser **and** sent to everyone on
+the list, so a recurring `npm start` doubles as a scheduled report.
+
+Add a `tokens.smtp` credential pair and an `email` block:
+
+```jsonc
+{
+  "tokens": {
+    "smtp": {
+      "user": "reports@yourcompany.com", // SMTP username
+      "pass": "xxxxxxxxxxxxxxxx", // SMTP password or app password
+    },
+  },
+  "email": {
+    "to": ["lead@yourcompany.com", "vp@yourcompany.com"], // one or more recipients
+    "cc": [], // optional
+    "bcc": [], // optional
+    "from": "Repo Hero <reports@yourcompany.com>", // optional, defaults to tokens.smtp.user
+    "subject": "Repo Hero Dashboard — {range}", // optional, supports placeholders
+    "compress": false, // optional, attach dashboard.html.gz instead
+    "maxAttachmentMB": 20, // optional, skip send above this encoded size
+    "enabled": true, // optional, set false to disable without deleting the block
+    "smtp": {
+      "host": "smtp.gmail.com", // required
+      "port": 587, // optional, defaults to 587
+      "secure": false, // optional, inferred from the port
+    },
+  },
+}
+```
+
+`to` accepts either a single address string or an array. Addresses may be bare
+(`you@company.com`) or include a display name (`You <you@company.com>`).
+
+**Subject placeholders** — `{range}`, `{startDate}`, `{endDate}`, `{periods}`,
+and `{date}`.
+
+**Ports** — `secure` defaults to `true` on port 465 (implicit TLS) and `false`
+on 587 or 25 (STARTTLS). Set it explicitly to override.
+
+**Attachment size** — the dashboard inlines all of its data, so it grows with
+your history and can exceed a mail server's message limit. Base64 encoding adds
+another third on the wire. Setting `"compress": true` attaches a gzipped
+dashboard, which typically shrinks it by more than 10x. Recipients on macOS and
+Linux can open the `.gz` by double-clicking it.
+
+**Gmail** — use an [app password](https://myaccount.google.com/apppasswords)
+rather than your account password.
+
+Email delivery is entirely optional. With no `email` block Repo Hero behaves
+exactly as before. If the block is present but unusable, the problem is reported
+and the run still finishes — a mail outage never costs you the dashboard.
+
+To email the dashboard already on disk without regenerating it:
+
+```sh
+npm run email
+```
+
 ### Quick Reconfigure
 
 ```sh
@@ -101,6 +164,7 @@ npm run config 2024-06
 | `npm run combine`       | Merge all `.results_history/*.json` into `combined_results.json`               |
 | `npm run chart`         | Regenerate CSV files and dashboard from combined results                       |
 | `npm run dashboard`     | Regenerate only the HTML dashboard                                             |
+| `npm run email`         | Email the existing dashboard without regenerating it                           |
 | `npm run reindex`       | Re-apply alias and ignore-user changes to all result files                     |
 | `npm run cleanup`       | Remove orphaned cache files (use `-- --dry` to preview)                        |
 | `npm run config <date>` | Quick-reconfigure `config.json` for a year or month                            |
@@ -265,6 +329,7 @@ repo-hero/
 ├── results-team-charter.js   Team CSV generation
 ├── active-users-by-date.js   Active user count CSV
 ├── results-dashboard.js      HTML dashboard generator
+├── email-dashboard.js        Emails the dashboard to configured recipients
 ├── results-reindexer.js      Retroactive alias/ignore re-indexer
 ├── results-cache-cleanup.js  Prune orphaned result files from cache
 ├── configurator.js           Quick date reconfiguration CLI

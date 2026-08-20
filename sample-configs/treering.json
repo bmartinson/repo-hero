@@ -118,7 +118,21 @@
     "AI Bots"
   ],
   "tokens": {
-    "github": "ghp_XXXXXX"
+    "github": "ghp_XXXXXX",
+    "smtp": {
+      "user": "reports@treering.com",
+      "pass": "XXXXXXXXXXXXXXXX"
+    }
+  },
+  "email": {
+    "to": ["reports@treering.com"],
+    "from": "Repo Hero <reports@treering.com>",
+    "subject": "Repo Hero Dashboard — {range}",
+    "compress": true,
+    "smtp": {
+      "host": "smtp.gmail.com",
+      "port": 587
+    }
   },
   "commitsPerPullRequest": 12.5
 }

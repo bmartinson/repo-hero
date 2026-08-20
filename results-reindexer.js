@@ -139,9 +139,11 @@ files.forEach(file => {
         loc: 0,
         filesTouched: 0,
         reviews: 0,
+        issueResolutions: 0,
         score: 0,
         predictedPullRequests: 0,
         repoBreakdown: {},
+        resolutionBreakdown: {},
       };
     } else if (oldName !== newName || merged[newName]._seen) {
       fileMerges++;
@@ -154,6 +156,7 @@ files.forEach(file => {
     merged[newName].loc += user.loc || 0;
     merged[newName].filesTouched += user.filesTouched || 0;
     merged[newName].reviews += user.reviews || 0;
+    merged[newName].issueResolutions += user.issueResolutions || 0;
     merged[newName].predictedPullRequests += user.predictedPullRequests || 0;
 
     // Merge repoBreakdown
@@ -177,6 +180,16 @@ files.forEach(file => {
           rb.filesTouched || 0;
       });
     }
+
+    // Merge resolutionBreakdown
+    if (user.resolutionBreakdown) {
+      Object.entries(user.resolutionBreakdown).forEach(([project, count]) => {
+        if (!merged[newName].resolutionBreakdown[project]) {
+          merged[newName].resolutionBreakdown[project] = 0;
+        }
+        merged[newName].resolutionBreakdown[project] += count || 0;
+      });
+    }
   });
 
   // Step 2: Re-calculate scores
@@ -186,6 +199,9 @@ files.forEach(file => {
     if (!user.predictedPullRequests) delete user.predictedPullRequests;
     // Remove empty repoBreakdown
     if (Object.keys(user.repoBreakdown).length === 0) delete user.repoBreakdown;
+    // Remove empty resolutionBreakdown
+    if (Object.keys(user.resolutionBreakdown).length === 0)
+      delete user.resolutionBreakdown;
     user.score = calculateScore(user);
   });
 

@@ -29,6 +29,9 @@ const dashboardData = {
   periods: [],
   users: {},
   team: [],
+  // Jira is an opt-in integration. When no results file carries resolution data
+  // the dashboard hides the metric entirely rather than showing empty zeroes.
+  hasIssueResolutions: false,
 };
 
 // First pass: collect all periods with their date ranges
@@ -151,9 +154,11 @@ filteredEntries.forEach(({ entry, startDate, endDate }) => {
       pullRequests: user.pullRequests || 0,
       predictedPullRequests: user.predictedPullRequests || 0,
       reviews: user.reviews || 0,
+      issueResolutions: user.issueResolutions || 0,
       loc: user.loc || 0,
       filesTouched: user.filesTouched || 0,
       repoBreakdown: user.repoBreakdown || {},
+      resolutionBreakdown: user.resolutionBreakdown || {},
     };
   });
 });
@@ -167,6 +172,13 @@ dashboardData.periods = dashboardData.periods
     return true;
   })
   .sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+// Detect whether any period carries issue resolution data
+dashboardData.hasIssueResolutions = Object.values(dashboardData.users).some(u =>
+  Object.values(u.data).some(d => (d.issueResolutions || 0) > 0)
+);
+
+const hasIssueResolutions = dashboardData.hasIssueResolutions;
 
 // ─── Build HTML ─────────────────────────────────────────────────────────────
 
@@ -1351,6 +1363,7 @@ body::after {
         <button class="sort-btn" data-sort="commits" onclick="setUserSort('commits')">Commits</button>
         <button class="sort-btn" data-sort="pullRequests" onclick="setUserSort('pullRequests')">PRs</button>
         <button class="sort-btn" data-sort="reviews" onclick="setUserSort('reviews')">Reviews</button>
+${hasIssueResolutions ? `<button class="sort-btn" data-sort="issueResolutions" onclick="setUserSort('issueResolutions')">Issue Resolutions</button>` : ''}
         <button class="sort-btn" data-sort="loc" onclick="setUserSort('loc')">LOC</button>
         <button class="sort-btn" data-sort="filesTouched" onclick="setUserSort('filesTouched')">Files</button>
       </div>
@@ -1402,6 +1415,7 @@ body::after {
       </p>
       <div class="meth-formula">
         score = ${Object.entries(WEIGHTS)
+          .filter(([key]) => hasIssueResolutions || key !== 'issueResolutions')
           .map(([key, w]) => {
             const label =
               key === 'loc'
@@ -1416,7 +1430,9 @@ body::after {
                         ? 'Commits'
                         : key === 'reviews'
                           ? 'Reviews'
-                          : key;
+                          : key === 'issueResolutions'
+                            ? 'Issue Resolutions'
+                            : key;
             if (w >= 1) return label + ' × ' + w;
             return (
               label +
@@ -1456,6 +1472,15 @@ body::after {
             <td class="meth-mono">${WEIGHTS.reviews}</td>
             <td>High weight — code reviews are critical to quality and team collaboration.</td>
           </tr>
+${
+  hasIssueResolutions
+    ? `<tr>
+            <td>Issue Resolutions</td>
+            <td class="meth-mono">${WEIGHTS.issueResolutions}</td>
+            <td>Moderate weight — resolved issues capture delivered work that has no PR, but sit below PRs and reviews because an issue is often resolved by a PR that is already counted.</td>
+          </tr>`
+    : ''
+}
           <tr>
             <td>Commits</td>
             <td class="meth-mono">${WEIGHTS.commits}</td>
@@ -1527,6 +1552,7 @@ body::after {
           <tr><td>Score</td><td>Weighted composite of all metrics below. Higher is better.</td></tr>
           <tr><td>Pull Requests</td><td>Real PRs merged/opened, or predicted PRs when real data is unavailable.</td></tr>
           <tr><td>Reviews</td><td>Pull request reviews performed (approved, commented, or requested changes).</td></tr>
+${hasIssueResolutions ? `<tr><td>Issue Resolutions</td><td>Jira issues resolved in the period, attributed to their assignee.</td></tr>` : ''}
           <tr><td>Commits</td><td>Total git commits authored across all tracked repositories.</td></tr>
           <tr><td>Lines of Code</td><td>Net lines added (insertions − deletions) across all commits.</td></tr>
           <tr><td>Files Touched</td><td>Unique files modified across all commits in the period.</td></tr>
@@ -1583,10 +1609,12 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
   const GENERATED_AT = '${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}';
   const ALL_PERIODS = DATA.periods; // [{id, startDate, endDate}, ...]
   const ALL_PERIOD_IDS = ALL_PERIODS.map(p => p.id);
+  const HAS_ISSUE_RESOLUTIONS = !!DATA.hasIssueResolutions;
   const METRICS = [
     { key: 'score',        label: 'Score',         color: '#00ddcc', format: v => v.toFixed(0) },
     { key: 'effectivePRs', label: 'Pull Requests',  color: '#00aaff', format: v => v.toFixed(0), dataKey: 'effectivePR' },
     { key: 'reviews',      label: 'Reviews',        color: '#cc66ff', format: v => v.toFixed(0) },
+${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolutions', color: '#4477ff', format: v => v.toFixed(0) },` : ''}
     { key: 'commits',      label: 'Commits',        color: '#22cc44', format: v => v.toFixed(0) },
     { key: 'loc',          label: 'Lines of Code',  color: '#ff8844', format: v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0) },
     { key: 'filesTouched', label: 'Files Touched',  color: '#ffaa00', format: v => v.toFixed(0) },
@@ -1680,8 +1708,8 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
 
   function getUserTotals(userName, periods) {
     const ud = DATA.users[userName];
-    if (!ud) return { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, reviews:0, loc:0, filesTouched:0 };
-    const totals = { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, reviews:0, loc:0, filesTouched:0 };
+    if (!ud) return { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, reviews:0, issueResolutions:0, loc:0, filesTouched:0 };
+    const totals = { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, reviews:0, issueResolutions:0, loc:0, filesTouched:0 };
     periods.forEach(p => {
       const d = ud.data[p];
       if (d) {
@@ -1691,6 +1719,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
         totals.predictedPullRequests += d.predictedPullRequests || 0;
         totals.effectivePRs += d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
         totals.reviews += d.reviews;
+        totals.issueResolutions += d.issueResolutions || 0;
         totals.loc += d.loc;
         totals.filesTouched += d.filesTouched;
       }
@@ -2050,6 +2079,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
           + '<div class="user-stat"><div class="stat-value">' + formatNum(t.commits) + fire('commits') + '</div><div class="stat-label">Commits</div></div>'
           + '<div class="user-stat"><div class="stat-value">' + formatNum(t.effectivePRs) + fire('effectivePRs') + '</div><div class="stat-label">PRs</div></div>'
           + '<div class="user-stat"><div class="stat-value">' + formatNum(t.reviews) + fire('reviews') + '</div><div class="stat-label">Reviews</div></div>'
+          + (HAS_ISSUE_RESOLUTIONS ? '<div class="user-stat"><div class="stat-value">' + formatNum(t.issueResolutions) + fire('issueResolutions') + '</div><div class="stat-label">Issue Res.</div></div>' : '')
           + '<div class="user-stat"><div class="stat-value">' + formatNum(t.loc) + fire('loc') + '</div><div class="stat-label">LOC</div></div>'
           + '<div class="user-stat"><div class="stat-value">' + formatNum(t.filesTouched) + fire('filesTouched') + '</div><div class="stat-label">Files</div></div>'
         + '</div>'
@@ -2657,7 +2687,7 @@ window.__REPO_HERO_DATA__ = ${JSON.stringify(dashboardData)};
       currentScope = +scope;
     }
     const sort = params.get('sort');
-    if (sort && ['score','commits','pullRequests','reviews','loc','filesTouched'].includes(sort)) currentSort = sort;
+    if (sort && ['score','commits','pullRequests','reviews','issueResolutions','loc','filesTouched'].includes(sort)) currentSort = sort;
     return {
       tab: params.get('tab') || 'dashboard',
       profile: params.get('profile') || null,

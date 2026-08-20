@@ -122,6 +122,10 @@
     "smtp": {
       "user": "reports@treering.com",
       "pass": "XXXXXXXXXXXXXXXX"
+    },
+    "jira": {
+      "email": "you@treering.com",
+      "apiToken": "ATATT_XXXXXX"
     }
   },
   "email": {
@@ -133,6 +137,11 @@
       "host": "smtp.gmail.com",
       "port": 587
     }
+  },
+  "jira": {
+    "baseUrl": "https://treering.atlassian.net",
+    "projects": ["TR", "CNSL"],
+    "excludeIssueTypes": ["Epic"]
   },
   "commitsPerPullRequest": 12.5
 }

@@ -277,12 +277,23 @@ if (!fs.existsSync(cacheDir)) {
         const content = fs.readFileSync(path.join(cacheDir, file), 'utf8');
         const data = JSON.parse(content);
         Object.keys(data).forEach(apiKey => {
-          if (!apiKey.includes('created:')) return;
+          // GitHub search windows use `created:START..END`; Jira JQL windows
+          // use `resolutiondate <= "END"`. Both can capture a future, empty
+          // period and both need the same staleness treatment.
+          if (
+            !apiKey.includes('created:') &&
+            !apiKey.includes('resolutiondate <=')
+          ) {
+            return;
+          }
           if (!searchKeyLatest[apiKey] || ts > searchKeyLatest[apiKey].ts) {
             searchKeyLatest[apiKey] = {
               file,
               ts,
-              items: data[apiKey]?.data?.items?.length ?? null,
+              items:
+                data[apiKey]?.data?.items?.length ??
+                data[apiKey]?.data?.issues?.length ??
+                null,
             };
           }
         });
@@ -294,11 +305,12 @@ if (!fs.existsSync(cacheDir)) {
     const staleFiles = new Set();
 
     Object.entries(searchKeyLatest).forEach(([apiKey, { file, ts, items }]) => {
-      const rangeMatch = apiKey.match(
-        /created:(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})/
-      );
+      const rangeMatch =
+        apiKey.match(/created:(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})/) ||
+        apiKey.match(/resolutiondate <= \\"(\d{4}-\d{2}-\d{2})/);
       if (!rangeMatch) return;
-      const searchEndMs = new Date(rangeMatch[2] + 'T23:59:59Z').getTime();
+      const windowEnd = rangeMatch[2] || rangeMatch[1];
+      const searchEndMs = new Date(windowEnd + 'T23:59:59Z').getTime();
       if (ts < searchEndMs) {
         staleFiles.add(file);
       }

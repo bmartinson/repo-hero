@@ -134,6 +134,7 @@ dist
 
 runner.sh
 config.json
+config.backup.json
 cache.json
 **/.results_cache/
 **/.results_history*

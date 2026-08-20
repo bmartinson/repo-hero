@@ -328,6 +328,7 @@ The dashboard is a self-contained HTML file with a dark, console-style theme ins
 
 - **Scoring formula** — Exact weights and calculation logic (auto-synced from `score.js`)
 - **Predicted pull requests** — How the two-pass prediction algorithm works
+- **Issue resolutions** — What counts as resolved, how assignees are credited through the alias map, and why the weight sits below PRs and reviews (only shown when Jira is configured)
 - **Outlier detection** — Statistical approach and thresholds
 - **Dashboard metrics** — Reference for all displayed data points
 

@@ -1534,6 +1534,65 @@ ${
         same ${WEIGHTS.pullRequests}× weight, giving historical periods fair representation without
         double-counting when real data exists.
       </p>
+${
+  hasIssueResolutions
+    ? `
+      <h2 class="meth-heading">Issue Resolutions</h2>
+      <p class="meth-text">
+        Not all delivered work leaves a trace in source control. Support requests, configuration fixes,
+        data corrections, and investigations often close a ticket without ever producing a commit.
+        <strong>Issue Resolutions</strong> captures that work by counting the issues each contributor
+        resolved during a period, pulled from the configured Jira projects.
+      </p>
+
+      <h3 class="meth-subheading">What Counts as Resolved</h3>
+      <p class="meth-text">
+        An issue counts toward a period when it carries a <strong>resolution date inside that period</strong>
+        and currently sits in the <strong>Done</strong> status category. Using the resolution date — rather
+        than the last-updated timestamp — means an issue is credited to the period in which the work
+        actually finished, and reopening an issue later does not silently move history.
+      </p>
+      <div class="meth-formula">
+        resolved = statusCategory(Done) AND resolutiondate ∈ [periodStart, periodEnd]
+      </div>
+      <p class="meth-text">
+        Boards that do not follow that convention can override the predicate with a
+        <code>completedJql</code> setting. The project and date-range clauses are always applied on top,
+        so weekly bucketing stays correct regardless of how "done" is defined. Issue types listed in
+        <code>excludeIssueTypes</code> — commonly <em>Epic</em> — are filtered out so that a container
+        closing does not count as delivered work on top of the issues inside it.
+      </p>
+
+      <h3 class="meth-subheading">Who Gets Credit</h3>
+      <p class="meth-text">
+        Credit goes to the issue's <strong>assignee</strong> at the time it is counted, not the reporter.
+        Jira identities are resolved through the <strong>same alias map</strong> used for git and GitHub
+        activity, so a person's resolutions merge into the one record as their commits, pull requests,
+        and reviews. Resolution is attempted in order: <strong>display name</strong>, then email address,
+        then the email's local part, then the account ID.
+      </p>
+      <p class="meth-text">
+        Most Jira Cloud sites withhold user email addresses for privacy, so the <strong>display name</strong>
+        is usually what carries the match — if someone's Jira name differs from their git identity, add it
+        to their alias list. Issues resolved with <strong>no assignee</strong> are counted in the run summary
+        but attributed to nobody, since there is no defensible way to assign credit.
+      </p>
+
+      <h3 class="meth-subheading">How It Affects Scoring</h3>
+      <p class="meth-text">
+        Each resolution is worth <strong>${WEIGHTS.issueResolutions}</strong>, placing it below Pull Requests
+        (${WEIGHTS.pullRequests}) and Reviews (${WEIGHTS.reviews}). That gap is deliberate: a great many issues
+        are resolved <em>by</em> a pull request that is already being counted, so weighting resolutions equally
+        would double-count the same work. The weight is high enough to make ticket-driven contribution visible,
+        but low enough that it cannot outrun sustained engineering output.
+      </p>
+      <p class="meth-text">
+        This metric only appears when Jira is configured. Without it, the dashboard hides Issue Resolutions
+        entirely rather than showing a column of zeroes that would misrepresent everyone equally.
+      </p>
+`
+    : ''
+}
 
       <h2 class="meth-heading">Outlier Detection</h2>
       <p class="meth-text">
@@ -1552,19 +1611,19 @@ ${
           <tr><td>Score</td><td>Weighted composite of all metrics below. Higher is better.</td></tr>
           <tr><td>Pull Requests</td><td>Real PRs merged/opened, or predicted PRs when real data is unavailable.</td></tr>
           <tr><td>Reviews</td><td>Pull request reviews performed (approved, commented, or requested changes).</td></tr>
-${hasIssueResolutions ? `<tr><td>Issue Resolutions</td><td>Jira issues resolved in the period, attributed to their assignee.</td></tr>` : ''}
+${hasIssueResolutions ? `<tr><td>Issue Resolutions</td><td>Jira issues resolved in the period, credited to their assignee via the alias map. Captures delivered work that leaves no commit behind.</td></tr>` : ''}
           <tr><td>Commits</td><td>Total git commits authored across all tracked repositories.</td></tr>
           <tr><td>Lines of Code</td><td>Net lines added (insertions − deletions) across all commits.</td></tr>
           <tr><td>Files Touched</td><td>Unique files modified across all commits in the period.</td></tr>
-          <tr><td>Active Contributors</td><td>Unique users with any commits, PRs, or reviews in the scope.</td></tr>
+          <tr><td>Active Contributors</td><td>Unique users with any commits, PRs, or reviews${hasIssueResolutions ? ', or issue resolutions' : ''} in the scope.</td></tr>
         </tbody>
       </table>
 
       <h2 class="meth-heading">⚠ Disclaimer</h2>
       <p class="meth-text" style="opacity:0.85;">
-        These scores reflect <strong>source control activity only</strong> and do not provide a complete
+        These scores reflect <strong>${hasIssueResolutions ? 'source control and tracked issue activity only' : 'source control activity only'}</strong> and do not provide a complete
         picture of overall job performance. Many valuable contributions fall outside the scope of this
-        tool, including but not limited to: handling support ticket requests, architectural design work,
+        tool, including but not limited to: ${hasIssueResolutions ? 'support work that never gets ticketed' : 'handling support ticket requests'}, architectural design work,
         IT tasks such as security reviews or company system management, mentoring, documentation,
         project planning, and cross-team collaboration. Scores should be used as one data point among
         many — not as a sole measure of individual contribution.

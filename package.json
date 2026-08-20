@@ -13,6 +13,7 @@
     "combine": "rm -rf .results_history/combined_results.json && node results-combiner.js",
     "chart": "rm -rf .results_history/*.csv && node results-charter.js; node results-team-charter.js; node results-dashboard.js",
     "dashboard": "node results-dashboard.js",
+    "email": "node email-dashboard.js",
     "reindex": "node results-reindexer.js",
     "cleanup": "node results-cache-cleanup.js",
     "enrich": "node results-enrich.js",
@@ -45,6 +46,7 @@
     "exec": "^0.2.1",
     "fs": "^0.0.1-security",
     "node-fetch": "^3.3.2",
+    "nodemailer": "^9.0.5",
     "path": "^0.12.7",
     "uuid": "^14.0.2"
   },

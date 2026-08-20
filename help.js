@@ -57,6 +57,9 @@ console.log(
 console.log(`    ${_cFgGreen}chart${_cReset}\t(re-generate csv files)`);
 console.log(`    ${_cFgGreen}dashboard${_cReset}\t(re-generate dashboard)`);
 console.log(
+  `    ${_cFgGreen}email${_cReset}\t(email the dashboard to configured recipients)`
+);
+console.log(
   `    ${_cFgGreen}enrich${_cReset}\t(enrich historical data with PR predictions)`
 );
 console.log(

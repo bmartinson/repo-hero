@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const { sendDashboardEmail } = require('./email-dashboard');
 const { WEIGHTS } = require('./score');
 
 const resultsDir = path.join(__dirname, '.results_history');
@@ -2831,3 +2832,17 @@ const openCmd =
       ? 'start'
       : 'xdg-open';
 exec(`${openCmd} "${outputFile}"`);
+
+// Email the portable dashboard to the configured recipients. Opt-in, and never
+// fatal — a delivery problem must not fail a run that already wrote the report.
+const firstPeriod = dashboardData.periods[0];
+const lastPeriod = dashboardData.periods[dashboardData.periods.length - 1];
+
+sendDashboardEmail({
+  startDate: firstPeriod?.startDate,
+  endDate: lastPeriod?.endDate,
+  periods: dashboardData.periods.length,
+  generatedAt: new Date().toISOString().split('T')[0],
+}).catch(error => {
+  console.warn(`Failed to email the dashboard: ${error.message}`);
+});

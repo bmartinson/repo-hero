@@ -12,7 +12,8 @@ A configurable CLI toolkit for analyzing the health of git repositories and thei
 - **Interactive dashboard** — dark, terminal-themed single-file HTML with Chart.js visualizations; no server required
 - **Flexible time scoping** — filter by 1W / 2W / 3W / 1M / 2M / 3M / 6M / 1Y / All directly in the dashboard (default: 1W)
 - **Smart overlap detection** — when weekly and monthly data coexist, the dashboard automatically prefers the more granular data
-- **Scoring engine** — configurable weighted formula across PRs, commits, reviews, LOC, and files touched (see [`score.js`](score.js))
+- **Scoring engine** — configurable weighted formula across PRs, commits, reviews, issue resolutions, LOC, and files touched (see [`score.js`](score.js))
+- **Issue resolution tracking** — optionally pull resolved issues from one or more Jira projects and attribute them to contributors through the same alias map used for git and GitHub identities
 - **PR prediction enrichment** — for historical periods without pull requests, Repo Hero learns each user's commits-per-PR ratio and synthesizes predicted PR counts
 - **Positive outlier detection** — users performing > 1.5σ above the mean on any metric are flagged with a 🔥 badge; click the badge to see the exact z-score and explanation
 - **Repository popularity** — repos with contribution scores > 1σ above the mean are flagged with a ⭐ badge on the Repos tab
@@ -58,6 +59,11 @@ Create a `config.json` in the project root (it is gitignored). All top-level pro
 {
   "tokens": {
     "github": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxx", // GitHub personal access token
+    "jira": {
+      // optional — omit the whole block to disable Jira metrics
+      "email": "you@yourcompany.com", // Atlassian account email
+      "apiToken": "ATATTxxxxxxxxxxxxxxxxxxxxxxx", // Atlassian API token
+    },
   },
   "directory": "/Users/you/Development", // parent directory containing .git repos
   "startDate": "2024-01-01", // analysis start (YYYY-MM-DD)
@@ -75,8 +81,47 @@ Create a `config.json` in the project root (it is gitignored). All top-level pro
     "DevOps", // names to exclude from results
     "dependabot[bot]",
   ],
+  "jira": {
+    // optional — omit to disable Jira metrics
+    "baseUrl": "https://yourorg.atlassian.net", // Jira Cloud site URL
+    "projects": ["ENG", "OPS"], // project keys to pull completed issues from
+    "completedJql": null, // optional override for the "completed" definition
+    "excludeIssueTypes": ["Epic"], // optional issue types to skip
+  },
 }
 ```
+
+### Jira Integration
+
+Jira support is entirely optional and powers the **Issue Resolutions** metric. When `jira`
+or `tokens.jira` is missing or incomplete, Repo Hero warns once and continues with
+GitHub-only metrics — and the dashboard hides the metric rather than showing empty zeroes.
+
+**Generating an API token:** create one at
+[id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
+and pair it with the email address of the same Atlassian account.
+
+**What counts as a resolution:** by default, an issue counts toward a period when it sits in
+the `Done` status category and its `resolutiondate` falls inside that period's date range.
+Boards that do not follow that convention can supply their own predicate via `completedJql` —
+the project and date-range clauses are still applied on top so weekly bucketing stays correct:
+
+```jsonc
+"completedJql": "status in (Shipped, Released)"
+```
+
+**Assignee mapping:** resolutions are attributed to the issue's assignee, resolved through the
+existing `aliases` map so a person's issues roll up into the same record as their commits,
+PRs, and reviews. Resolution is attempted in this order:
+
+1. Jira display name (e.g. `"Jane Smith"`) — matches the canonical alias keys
+2. Assignee email address, then its local part (e.g. `jsmith`) — matches alias entries
+3. Atlassian account ID — last resort so the issue is still counted
+
+Most Jira Cloud sites hide email addresses for privacy, so the **display name is usually the
+value that has to match**. If a teammate's Jira display name differs from their canonical
+alias key, add it to their `aliases` array. Unassigned issues are skipped and reported in the
+run summary.
 
 ### Quick Reconfigure
 
@@ -149,7 +194,7 @@ npm start
 
 ### Data Flow
 
-1. **Gather** — For each week in the date range, queries the GitHub API for pull requests, reviews, and pending commits, and runs `git log` locally for commit counts, LOC, and files touched. Per-user contribution breakdowns are tracked by repository. Results are saved as `.results_history/YYYY-MM-DD_YYYY-MM-DD.json`. Weeks that already have result files are skipped (idempotent).
+1. **Gather** — For each week in the date range, queries the GitHub API for pull requests, reviews, and pending commits, and runs `git log` locally for commit counts, LOC, and files touched. When Jira is configured, it also queries each configured Jira project for issues resolved in the window and attributes those resolutions to their assignee. Per-user contribution breakdowns are tracked by repository (and by Jira project). Results are saved as `.results_history/YYYY-MM-DD_YYYY-MM-DD.json`. Weeks that already have result files are skipped (idempotent).
 
 2. **Enrich** — Two-pass process: first learns each user's historical commits-per-PR ratio from periods where real PR data exists, then fills in `predictedPullRequests` for periods where PRs are zero. Recalculates all user scores.
 
@@ -168,6 +213,7 @@ Scores are calculated per user per period using the weights defined in [`score.j
 | Pull Requests           | × 15     | Uses real PRs; falls back to predicted PRs if zero            |
 | Predicted Pull Requests | × 15     | Synthesized from commits-per-PR ratio (used as fallback)      |
 | Reviews                 | × 17     | Code reviews authored — weighted highest as a team multiplier |
+| Issue Resolutions       | × 10     | Jira issues resolved by the user (when Jira is configured)    |
 | Commits                 | × 0.01   | Raw commit count                                              |
 | Lines of Code           | × 0.0001 | Net lines changed (additions + deletions)                     |
 | Files Touched           | × 0.0001 | Unique files modified                                         |
@@ -194,7 +240,7 @@ The dashboard is a self-contained HTML file with a dark, console-style theme ins
 
 ### Dashboard Tab
 
-- **Trend charts** — Score, Pull Requests, Reviews, Commits, LOC, Files Touched, Active Users, Team Score
+- **Trend charts** — Score, Pull Requests, Reviews, Issue Resolutions (when configured), Commits, LOC, Files Touched, Active Users, Team Score
 - **Top 5 leaderboards** — Per metric, updated when the time scope changes
 
 ### Users Tab

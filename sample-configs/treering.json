@@ -118,7 +118,16 @@
     "AI Bots"
   ],
   "tokens": {
-    "github": "ghp_XXXXXX"
+    "github": "ghp_XXXXXX",
+    "jira": {
+      "email": "you@treering.com",
+      "apiToken": "ATATT_XXXXXX"
+    }
+  },
+  "jira": {
+    "baseUrl": "https://treering.atlassian.net",
+    "projects": ["TR", "CNSL"],
+    "excludeIssueTypes": ["Epic"]
   },
   "commitsPerPullRequest": 12.5
 }

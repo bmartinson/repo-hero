@@ -17,6 +17,7 @@ const trendingPullRequests = {};
 const trendingFilesTouched = {};
 const trendingReviews = {};
 const trendingLoc = {};
+const trendingJiraIssues = {};
 
 // Loop through JSON data
 for (const [key, value] of Object.entries(data)) {
@@ -33,6 +34,7 @@ for (const [key, value] of Object.entries(data)) {
         trendingFilesTouched[name] = {};
         trendingReviews[name] = {};
         trendingLoc[name] = {};
+        trendingJiraIssues[name] = {};
       }
 
       trendingScore[name][date] = user.score || 0;
@@ -41,6 +43,7 @@ for (const [key, value] of Object.entries(data)) {
       trendingFilesTouched[name][date] = user.filesTouched || 0;
       trendingReviews[name][date] = user.reviews || 0;
       trendingLoc[name][date] = user.loc || 0;
+      trendingJiraIssues[name][date] = user.jiraIssues || 0;
     }
   }
 }
@@ -72,6 +75,7 @@ const outputFiles = [
   'trending_filesTouched.csv',
   'trending_reviews.csv',
   'trending_loc.csv',
+  'trending_jiraIssues.csv',
 ];
 
 outputFiles.forEach(outputFilePath => {
@@ -87,3 +91,4 @@ writeCsv('trending_pullRequests.csv', trendingPullRequests);
 writeCsv('trending_filesTouched.csv', trendingFilesTouched);
 writeCsv('trending_reviews.csv', trendingReviews);
 writeCsv('trending_loc.csv', trendingLoc);
+writeCsv('trending_jiraIssues.csv', trendingJiraIssues);

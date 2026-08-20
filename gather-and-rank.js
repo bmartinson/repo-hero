@@ -43,6 +43,8 @@ let _ALIASES = {}; // { key: [value: string[]] }
 let _RESULTS = {}; // any (results_timestamp.json)
 let _GITHUB_API = null; // axios instance for the GitHub API
 let _GITHUB_SEARCH_API = null; // axios instance for the GitHub API
+let _JIRA_API = null; // axios instance for the Jira Cloud API
+let _JIRA_ENABLED = false; // whether the Jira pass should run for this session
 let _CACHE = null; // any (cache.json)
 
 // ----- helper functions -----
@@ -140,6 +142,56 @@ function getAliasForUser(user) {
 }
 
 /**
+ * Resolve a Jira assignee object down to the same normalized alias that the
+ * git/GitHub side of the pipeline uses, so a person's tickets land on the same
+ * user record as their commits, pull requests, and reviews.
+ *
+ * Jira exposes a display name, and (depending on the account's GDPR privacy
+ * settings) possibly an email address. Resolution is attempted in order of how
+ * likely each value is to already appear in the configured aliases:
+ *
+ *   1. displayName        — matches the canonical alias keys, e.g. "Jane Smith"
+ *   2. emailAddress       — matches alias entries written as full addresses
+ *   3. email local part   — matches alias entries written as usernames/logins
+ *   4. accountId          — stable last resort so the issue is still counted
+ *
+ * @param {{ displayName?: string, emailAddress?: string, accountId?: string }} assignee
+ * @returns {string | null} The normalized alias, or null when unassigned.
+ */
+function getAliasForJiraUser(assignee) {
+  if (!assignee) {
+    return null;
+  }
+
+  const candidates = [];
+
+  if (assignee.displayName) {
+    candidates.push(assignee.displayName);
+  }
+
+  if (assignee.emailAddress) {
+    candidates.push(assignee.emailAddress);
+    candidates.push(assignee.emailAddress.split('@')[0]);
+  }
+
+  // Prefer a candidate that is explicitly mapped by the configured aliases
+  for (const candidate of candidates) {
+    const normalized = removeEmailAccount(candidate.toLowerCase()).trim();
+
+    if (_ALIASES[normalized]) {
+      return _ALIASES[normalized].toLowerCase().trim();
+    }
+  }
+
+  // Otherwise fall back to the display name, which matches canonical alias keys
+  if (candidates.length > 0) {
+    return getAliasForUser(candidates[0]);
+  }
+
+  return assignee.accountId ? assignee.accountId.toLowerCase().trim() : null;
+}
+
+/**
  * Executes a shell command and returns a promise that resolves with the response.
  *
  * @param {string} command The command to execute.
@@ -163,6 +215,70 @@ async function executeCommand(command, directory) {
 }
 
 /**
+ * Lazily populate the in-memory response cache from the on-disk cache files.
+ *
+ * Shared by every API layer (GitHub and Jira) so that whichever one issues the
+ * first request pays the load cost and the rest reuse the same map.
+ */
+function _loadCache() {
+  const cacheDir = path.join(__dirname, '.results_cache');
+
+  if (!_CACHE && _CONFIG?.skipCache) {
+    console.log(`\n${_cFgYellow}Cache reading disabled. ${_cReset}\n`);
+  }
+
+  if (_CACHE) {
+    return;
+  }
+
+  _CACHE = {};
+
+  // If the skip cache flag is enabled, don't bother reading in cache files
+  if (_CONFIG?.skipCache) {
+    return;
+  }
+
+  console.log(
+    `\n${_cFgYellow}Populating results cache. This might take a while...${_cReset}\n`
+  );
+
+  try {
+    const files = fs.readdirSync(cacheDir);
+    // Sort alphabetically so that cache_{timestamp}_... files are read in
+    // chronological order — the last entry for any given key wins.
+    const jsonFiles = files
+      .filter(file => path.extname(file) === '.json')
+      .sort();
+
+    if (jsonFiles.length > 0) {
+      jsonFiles.forEach(file => {
+        try {
+          const filePath = path.join(cacheDir, file);
+          const fileContent = fs.readFileSync(filePath, 'utf8');
+
+          const data = JSON.parse(fileContent);
+          // Extract write timestamp from filename: cache_{timestamp}_{uuid}.json
+          const fileTs = parseInt(file.split('_')[1], 10) || 0;
+          Object.keys(data).forEach(dataKey => {
+            // Preserve any _written_at already stored in the value, or
+            // fall back to the timestamp embedded in the filename.
+            _CACHE[dataKey] = {
+              ...data[dataKey],
+              _written_at: data[dataKey]._written_at ?? fileTs,
+            };
+          });
+        } catch (cacheError) {
+          `  ${_cFgGray}Error parsing a cache file. Consider removal of ${path.join(cacheDir, file)}${_cReset}`;
+        }
+      });
+    }
+  } catch (error) {
+    console.error('An error occurred while processing cache files:', error);
+    _CACHE = {};
+  }
+}
+
+/**
  *
  * @param {string} req The path of the endpoint to fetch data from.
  * @param {any} options The request options.
@@ -176,55 +292,7 @@ async function getFromGitHubAPI(req, options) {
     key += `--qps--${JSON.stringify(options)}`;
   }
 
-  if (!_CACHE && _CONFIG?.skipCache) {
-    console.log(`\n${_cFgYellow}Cache reading disabled. ${_cReset}\n`);
-  }
-
-  if (!_CACHE) {
-    _CACHE = {};
-
-    // If the skip cache flag is enabled, don't bother reading in cache files
-    if (!_CONFIG?.skipCache) {
-      console.log(
-        `\n${_cFgYellow}Populating results cache. This might take a while...${_cReset}\n`
-      );
-
-      try {
-        const files = fs.readdirSync(cacheDir);
-        // Sort alphabetically so that cache_{timestamp}_... files are read in
-        // chronological order — the last entry for any given key wins.
-        const jsonFiles = files
-          .filter(file => path.extname(file) === '.json')
-          .sort();
-
-        if (jsonFiles.length > 0) {
-          jsonFiles.forEach(file => {
-            try {
-              const filePath = path.join(cacheDir, file);
-              const fileContent = fs.readFileSync(filePath, 'utf8');
-
-              const data = JSON.parse(fileContent);
-              // Extract write timestamp from filename: cache_{timestamp}_{uuid}.json
-              const fileTs = parseInt(file.split('_')[1], 10) || 0;
-              Object.keys(data).forEach(dataKey => {
-                // Preserve any _written_at already stored in the value, or
-                // fall back to the timestamp embedded in the filename.
-                _CACHE[dataKey] = {
-                  ...data[dataKey],
-                  _written_at: data[dataKey]._written_at ?? fileTs,
-                };
-              });
-            } catch (cacheError) {
-              `  ${_cFgGray}Error parsing a cache file. Consider removal of ${path.join(cacheDir, file)}${_cReset}`;
-            }
-          });
-        }
-      } catch (error) {
-        console.error('An error occurred while processing cache files:', error);
-        _CACHE = {};
-      }
-    }
-  }
+  _loadCache();
 
   if (!_CONFIG?.skipCache && _CACHE[key]) {
     // Staleness check: for GitHub search queries with a `created:START..END` date
@@ -306,6 +374,167 @@ async function getFromGitHubAPI(req, options) {
   } catch (error) {
     throw error;
   }
+}
+
+/**
+ * Perform a GET against the Jira Cloud REST API, transparently reading from and
+ * writing to the same on-disk response cache used for GitHub requests.
+ *
+ * Cache keys are prefixed with `jira:` so they never collide with GitHub paths,
+ * and entries are considered stale when they were written before the end of the
+ * resolution window they describe. That mirrors the GitHub `created:` staleness
+ * check and prevents an empty result — cached while the week was still in the
+ * future — from being reused forever.
+ *
+ * @param {string} req The Jira API path, e.g. '/rest/api/3/search/jql'.
+ * @param {object} [options] Axios request options (params, etc).
+ * @returns {Promise<any>} The axios response (or the cached equivalent).
+ */
+async function getFromJiraAPI(req, options) {
+  const cacheDir = path.join(__dirname, '.results_cache');
+
+  let key = `jira:${req}`;
+  if (options) {
+    key += `--qps--${JSON.stringify(options)}`;
+  }
+
+  _loadCache();
+
+  if (!_CONFIG?.skipCache && _CACHE[key]) {
+    // Staleness check: JQL queries carry a `resolutiondate <= "END"` bound. If
+    // the entry was cached before that window closed, the data is incomplete.
+    const rangeMatch = key.match(/resolutiondate <= \\"(\d{4}-\d{2}-\d{2})/);
+
+    if (rangeMatch) {
+      const searchEndMs = new Date(rangeMatch[1] + 'T23:59:59Z').getTime();
+
+      if ((_CACHE[key]._written_at ?? 0) < searchEndMs) {
+        delete _CACHE[key]; // stale — fall through to make a fresh API call
+      }
+    }
+  }
+
+  if (!_CONFIG?.skipCache && _CACHE[key]) {
+    const { _written_at, ...cacheVal } = _CACHE[key];
+
+    console.log(
+      `Re-using cached data from Jira API: ${_cFgYellow}${req}${_cReset}`
+    );
+
+    return cacheVal;
+  }
+
+  console.log(`Fetching data from Jira API: ${_cFgBlue}${req}${_cReset}`);
+
+  const response = await _JIRA_API.get(req, options);
+
+  if (response?.status !== 200) {
+    return response;
+  }
+
+  _CACHE[key] = {
+    data: response.data,
+    headers: response.headers,
+    _written_at: Date.now(),
+  };
+
+  const filename = `cache_${Date.now()}_${uuidv4()}.json`;
+
+  const saveData = {};
+  saveData[key] = _CACHE[key];
+
+  // Check if the .results_cache folder exists, if not, create it
+  if (!fs.existsSync(cacheDir)) {
+    fs.mkdirSync(cacheDir);
+  }
+
+  console.log(
+    `  ${_cFgGray}Cached at: ./results_cache/${filename}${_cReset}\n`
+  );
+
+  fs.writeFile(
+    path.join(cacheDir, filename),
+    JSON.stringify(saveData, null, 2),
+    () => {}
+  );
+
+  return response;
+}
+
+/**
+ * Build the JQL used to find issues completed inside the reporting window for a
+ * single Jira project.
+ *
+ * By default an issue counts as completed when it carries a resolution date
+ * inside the window and currently sits in the "Done" status category. Teams
+ * whose boards do not follow that convention can supply `jira.completedJql` in
+ * the configuration; the project and date clauses are still applied so that
+ * weekly bucketing stays correct.
+ *
+ * @param {string} projectKey The Jira project key, e.g. 'ENG'.
+ * @returns {string} The JQL query string.
+ */
+function buildCompletedIssuesJql(projectKey) {
+  const clauses = [`project = "${projectKey}"`];
+
+  if (_CONFIG?.jira?.completedJql) {
+    clauses.push(`(${_CONFIG.jira.completedJql})`);
+  } else {
+    clauses.push('statusCategory = Done');
+  }
+
+  clauses.push(`resolutiondate >= "${_START_DATE}"`);
+  clauses.push(`resolutiondate <= "${_END_DATE} 23:59"`);
+
+  const excluded = _CONFIG?.jira?.excludeIssueTypes;
+  if (Array.isArray(excluded) && excluded.length > 0) {
+    clauses.push(
+      `issuetype not in (${excluded.map(t => `"${t}"`).join(', ')})`
+    );
+  }
+
+  return clauses.join(' AND ');
+}
+
+/**
+ * Fetch every issue completed within the reporting window for a Jira project.
+ *
+ * Uses the `/rest/api/3/search/jql` endpoint, which paginates with an opaque
+ * `nextPageToken` rather than `startAt` and returns no total count, so pages are
+ * walked until no further token is returned.
+ *
+ * @param {string} projectKey The Jira project key, e.g. 'ENG'.
+ * @returns {Promise<any[]>} All matching issues.
+ */
+async function fetchCompletedJiraIssues(projectKey) {
+  const jql = buildCompletedIssuesJql(projectKey);
+  const issues = [];
+
+  let nextPageToken = null;
+  let hasMorePages = true;
+
+  while (hasMorePages) {
+    const params = {
+      jql,
+      maxResults: 100,
+      fields: 'assignee,resolutiondate,issuetype,summary',
+    };
+
+    if (nextPageToken) {
+      params.nextPageToken = nextPageToken;
+    }
+
+    const response = await getFromJiraAPI('/rest/api/3/search/jql', { params });
+
+    if (Array.isArray(response?.data?.issues)) {
+      issues.push(...response.data.issues);
+    }
+
+    nextPageToken = response?.data?.nextPageToken || null;
+    hasMorePages = !!nextPageToken && !response?.data?.isLast;
+  }
+
+  return issues;
 }
 
 /**
@@ -682,6 +911,122 @@ function _configureApp() {
       'GitHub API token not configured. Consider adding config.json .tokens.github for more stats!'
     );
   }
+
+  _configureJira();
+}
+
+/**
+ * Configure the optional Jira integration.
+ *
+ * The integration is entirely opt-in: when `jira` or `tokens.jira` is missing or
+ * incomplete we warn and continue so that a configuration without Jira behaves
+ * exactly as it did before the integration existed.
+ */
+function _configureJira() {
+  const jira = _CONFIG?.jira;
+  const credentials = _CONFIG?.tokens?.jira;
+
+  if (!jira && !credentials) {
+    // Jira is simply not in use for this configuration — stay quiet.
+    return;
+  }
+
+  if (!jira?.baseUrl) {
+    console.warn(
+      `${_cFgYellow}Jira is partially configured: missing jira.baseUrl. Skipping Jira issue metrics.${_cReset}`
+    );
+    return;
+  }
+
+  if (!Array.isArray(jira.projects) || jira.projects.length === 0) {
+    console.warn(
+      `${_cFgYellow}Jira is partially configured: jira.projects must be a non-empty array of project keys. Skipping Jira issue metrics.${_cReset}`
+    );
+    return;
+  }
+
+  if (!credentials?.email || !credentials?.apiToken) {
+    console.warn(
+      `${_cFgYellow}Jira is partially configured: missing tokens.jira.email or tokens.jira.apiToken. Skipping Jira issue metrics.${_cReset}`
+    );
+    return;
+  }
+
+  let baseURL;
+  try {
+    baseURL = new URL(jira.baseUrl).origin;
+  } catch {
+    console.warn(
+      `${_cFgYellow}Invalid jira.baseUrl "${jira.baseUrl}". Skipping Jira issue metrics.${_cReset}`
+    );
+    return;
+  }
+
+  const auth = Buffer.from(
+    `${credentials.email}:${credentials.apiToken}`
+  ).toString('base64');
+
+  _JIRA_API = rateLimit(
+    axios.create({
+      baseURL,
+      headers: {
+        Authorization: `Basic ${auth}`,
+        Accept: 'application/json',
+      },
+    }),
+    {
+      // Jira Cloud allows roughly 10 requests/second per user; stay conservative
+      // and match the pacing already used for the GitHub core API.
+      maxRequests: 5,
+      perMilliseconds: 2000,
+    }
+  );
+
+  _JIRA_ENABLED = true;
+}
+
+/**
+ * Validates the configured Jira credentials by calling /rest/api/3/myself.
+ *
+ * A failure here disables the Jira pass for the run rather than aborting the
+ * whole gather, so a stale Atlassian token never costs you your GitHub data.
+ *
+ * @returns {Promise<void>}
+ */
+async function _validateJiraToken() {
+  if (!_JIRA_ENABLED) {
+    return;
+  }
+
+  try {
+    const response = await _JIRA_API.get('/rest/api/3/myself');
+    console.log(
+      `\n${_cFgBlue}Jira API${_cReset} authenticated as ${response?.data?.displayName || 'unknown user'}.\n`
+    );
+  } catch (error) {
+    const status = error?.response?.status;
+
+    if (status === 401 || status === 403) {
+      console.error(
+        `\n${_cFgRed}✗ Jira credentials are invalid or expired.${_cReset}`
+      );
+      console.error(
+        `  Update ${_cFgYellow}tokens.jira.email${_cReset} and ${_cFgYellow}tokens.jira.apiToken${_cReset} in config.json.`
+      );
+      console.error(
+        `  Generate a token at: https://id.atlassian.com/manage-profile/security/api-tokens`
+      );
+    } else {
+      console.warn(
+        `\n${_cFgYellow}Warning: could not reach Jira to validate credentials.${_cReset}`
+      );
+    }
+
+    console.warn(
+      `${_cFgYellow}Continuing without Jira issue metrics.${_cReset}\n`
+    );
+    _JIRA_ENABLED = false;
+  }
 }
 
 /**
@@ -1048,6 +1393,91 @@ function _processProjects() {
   });
 }
 
+/**
+ * Fetch and tally the Jira issues completed within the reporting window across
+ * every configured Jira project.
+ *
+ * Each issue is attributed to its assignee, normalized through the same alias
+ * map used for git authors and GitHub logins, so a person's tickets roll up into
+ * the same user record as the rest of their contributions.
+ *
+ * @returns {Promise<void>}
+ */
+async function _processJiraProjects() {
+  if (!_JIRA_ENABLED) {
+    return;
+  }
+
+  const projects = _CONFIG.jira.projects;
+
+  console.log(
+    `Fetching completed issues from ${projects.length} Jira projects...`
+  );
+
+  if (!_RESULTS.users) {
+    _RESULTS.users = {};
+  }
+
+  if (!_RESULTS.totalJiraIssues) {
+    _RESULTS.totalJiraIssues = 0;
+  }
+
+  let unassigned = 0;
+
+  for (const projectKey of projects) {
+    let issues = [];
+
+    try {
+      issues = await fetchCompletedJiraIssues(projectKey);
+    } catch (error) {
+      console.error(
+        `Error fetching Jira issues for project ${projectKey}:`,
+        error?.response?.data?.errorMessages || error.message
+      );
+      continue;
+    }
+
+    issues.forEach(issue => {
+      const alias = getAliasForJiraUser(issue?.fields?.assignee);
+
+      if (!alias) {
+        unassigned++;
+        return;
+      }
+
+      if (!_RESULTS.users[alias]) {
+        _RESULTS.users[alias] = {};
+      }
+
+      if (!_RESULTS.users[alias].jiraIssues) {
+        _RESULTS.users[alias].jiraIssues = 0;
+      }
+
+      if (!_RESULTS.users[alias].jiraBreakdown) {
+        _RESULTS.users[alias].jiraBreakdown = {};
+      }
+
+      if (!_RESULTS.users[alias].jiraBreakdown[projectKey]) {
+        _RESULTS.users[alias].jiraBreakdown[projectKey] = 0;
+      }
+
+      _RESULTS.users[alias].jiraIssues++;
+      _RESULTS.users[alias].jiraBreakdown[projectKey]++;
+      _RESULTS.totalJiraIssues++;
+    });
+
+    console.log(
+      `  ${_cFgGray}${projectKey}: ${issues.length} completed issues${_cReset}`
+    );
+  }
+
+  if (unassigned > 0) {
+    console.log(
+      `  ${_cFgYellow}${unassigned} completed issues had no assignee and were not attributed.${_cReset}`
+    );
+  }
+}
+
 function processUserCommits(packageName, project) {
   return new Promise((resolve, reject) => {
     executeCommand(
@@ -1127,7 +1557,14 @@ _configureApp();
 // If the token is invalid, process.exit(1) fires before .finally() so no
 // partial result file is written and no existing files are overwritten.
 _validateToken()
+  .then(() => _validateJiraToken())
   .then(() => _processProjects())
+  .then(() =>
+    _processJiraProjects().catch(error => {
+      // Never let a Jira failure discard an otherwise successful GitHub gather.
+      console.error('Error processing Jira projects:', error.message);
+    })
+  )
   .catch(() => {
     process.exit(1);
   })
@@ -1146,6 +1583,10 @@ _validateToken()
         : _RESULTS.totalCommits / _RESULTS.commitsPerPullRequest;
     _RESULTS.activeUsers = 0;
     _RESULTS.teamScore = 0;
+
+    if (!_RESULTS.totalJiraIssues) {
+      _RESULTS.totalJiraIssues = 0;
+    }
 
     // assess the results for all users
     if (!!_RESULTS?.users) {
@@ -1166,6 +1607,11 @@ _validateToken()
         // make sure loc is defined
         if (!_RESULTS.users[user].loc) {
           _RESULTS.users[user].loc = 0;
+        }
+
+        // make sure completed jira issues are defined
+        if (!_RESULTS.users[user].jiraIssues) {
+          _RESULTS.users[user].jiraIssues = 0;
         }
 
         // calculate the user score

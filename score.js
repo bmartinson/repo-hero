@@ -12,11 +12,11 @@ const WEIGHTS = {
   predictedPullRequests: 15,
   commits: 1 / 100,
   reviews: 17,
-  // Completed Jira issues sit below pullRequests (15) and reviews (17). A ticket
-  // is a meaningful unit of delivered work, but it is a coarser signal and is
-  // frequently closed by a pull request that is already being counted, so the
+  // Issue resolutions sit below pullRequests (15) and reviews (17). A resolved
+  // issue is a meaningful unit of delivered work, but it is a coarser signal and
+  // is frequently closed by a pull request that is already being counted, so the
   // weight is deliberately lower to limit double counting.
-  jiraIssues: 10,
+  issueResolutions: 10,
 };
 
 /**
@@ -25,7 +25,7 @@ const WEIGHTS = {
  * Uses real pullRequests when available, otherwise falls back to
  * predictedPullRequests (synthesized from commits-per-PR ratios).
  *
- * @param {{ loc?: number, filesTouched?: number, pullRequests?: number, predictedPullRequests?: number, commits?: number, reviews?: number, jiraIssues?: number }} user
+ * @param {{ loc?: number, filesTouched?: number, pullRequests?: number, predictedPullRequests?: number, commits?: number, reviews?: number, issueResolutions?: number }} user
  * @returns {number}
  */
 function calculateScore(user) {
@@ -39,7 +39,7 @@ function calculateScore(user) {
     effectivePrs * WEIGHTS.pullRequests +
     (user.commits || 0) * WEIGHTS.commits +
     (user.reviews || 0) * WEIGHTS.reviews +
-    (user.jiraIssues || 0) * WEIGHTS.jiraIssues;
+    (user.issueResolutions || 0) * WEIGHTS.issueResolutions;
 
   return score || 0;
 }

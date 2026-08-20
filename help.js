@@ -36,7 +36,7 @@ console.log(
   `    ${_cFgGreen}gather${_cReset}\t(gather data and generate .results_history/*.json)`
 );
 console.log(
-  `    \t\t  (includes completed Jira issues when config.json .jira is set)`
+  `    \t\t  (includes issue resolutions when config.json .jira is set)`
 );
 console.log(`    \t\t  --start YYYY-MM-DD  (override start date)`);
 console.log(`    \t\t  --end   YYYY-MM-DD  (override end date)`);

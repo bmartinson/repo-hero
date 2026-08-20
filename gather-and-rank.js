@@ -933,21 +933,21 @@ function _configureJira() {
 
   if (!jira?.baseUrl) {
     console.warn(
-      `${_cFgYellow}Jira is partially configured: missing jira.baseUrl. Skipping Jira issue metrics.${_cReset}`
+      `${_cFgYellow}Jira is partially configured: missing jira.baseUrl. Skipping issue resolution metrics.${_cReset}`
     );
     return;
   }
 
   if (!Array.isArray(jira.projects) || jira.projects.length === 0) {
     console.warn(
-      `${_cFgYellow}Jira is partially configured: jira.projects must be a non-empty array of project keys. Skipping Jira issue metrics.${_cReset}`
+      `${_cFgYellow}Jira is partially configured: jira.projects must be a non-empty array of project keys. Skipping issue resolution metrics.${_cReset}`
     );
     return;
   }
 
   if (!credentials?.email || !credentials?.apiToken) {
     console.warn(
-      `${_cFgYellow}Jira is partially configured: missing tokens.jira.email or tokens.jira.apiToken. Skipping Jira issue metrics.${_cReset}`
+      `${_cFgYellow}Jira is partially configured: missing tokens.jira.email or tokens.jira.apiToken. Skipping issue resolution metrics.${_cReset}`
     );
     return;
   }
@@ -957,7 +957,7 @@ function _configureJira() {
     baseURL = new URL(jira.baseUrl).origin;
   } catch {
     console.warn(
-      `${_cFgYellow}Invalid jira.baseUrl "${jira.baseUrl}". Skipping Jira issue metrics.${_cReset}`
+      `${_cFgYellow}Invalid jira.baseUrl "${jira.baseUrl}". Skipping issue resolution metrics.${_cReset}`
     );
     return;
   }
@@ -1023,7 +1023,7 @@ async function _validateJiraToken() {
     }
 
     console.warn(
-      `${_cFgYellow}Continuing without Jira issue metrics.${_cReset}\n`
+      `${_cFgYellow}Continuing without issue resolution metrics.${_cReset}\n`
     );
     _JIRA_ENABLED = false;
   }
@@ -1394,8 +1394,8 @@ function _processProjects() {
 }
 
 /**
- * Fetch and tally the Jira issues completed within the reporting window across
- * every configured Jira project.
+ * Fetch and tally the issue resolutions recorded within the reporting window
+ * across every configured Jira project.
  *
  * Each issue is attributed to its assignee, normalized through the same alias
  * map used for git authors and GitHub logins, so a person's tickets roll up into
@@ -1411,15 +1411,15 @@ async function _processJiraProjects() {
   const projects = _CONFIG.jira.projects;
 
   console.log(
-    `Fetching completed issues from ${projects.length} Jira projects...`
+    `Fetching issue resolutions from ${projects.length} Jira projects...`
   );
 
   if (!_RESULTS.users) {
     _RESULTS.users = {};
   }
 
-  if (!_RESULTS.totalJiraIssues) {
-    _RESULTS.totalJiraIssues = 0;
+  if (!_RESULTS.totalIssueResolutions) {
+    _RESULTS.totalIssueResolutions = 0;
   }
 
   let unassigned = 0;
@@ -1449,31 +1449,31 @@ async function _processJiraProjects() {
         _RESULTS.users[alias] = {};
       }
 
-      if (!_RESULTS.users[alias].jiraIssues) {
-        _RESULTS.users[alias].jiraIssues = 0;
+      if (!_RESULTS.users[alias].issueResolutions) {
+        _RESULTS.users[alias].issueResolutions = 0;
       }
 
-      if (!_RESULTS.users[alias].jiraBreakdown) {
-        _RESULTS.users[alias].jiraBreakdown = {};
+      if (!_RESULTS.users[alias].resolutionBreakdown) {
+        _RESULTS.users[alias].resolutionBreakdown = {};
       }
 
-      if (!_RESULTS.users[alias].jiraBreakdown[projectKey]) {
-        _RESULTS.users[alias].jiraBreakdown[projectKey] = 0;
+      if (!_RESULTS.users[alias].resolutionBreakdown[projectKey]) {
+        _RESULTS.users[alias].resolutionBreakdown[projectKey] = 0;
       }
 
-      _RESULTS.users[alias].jiraIssues++;
-      _RESULTS.users[alias].jiraBreakdown[projectKey]++;
-      _RESULTS.totalJiraIssues++;
+      _RESULTS.users[alias].issueResolutions++;
+      _RESULTS.users[alias].resolutionBreakdown[projectKey]++;
+      _RESULTS.totalIssueResolutions++;
     });
 
     console.log(
-      `  ${_cFgGray}${projectKey}: ${issues.length} completed issues${_cReset}`
+      `  ${_cFgGray}${projectKey}: ${issues.length} issue resolutions${_cReset}`
     );
   }
 
   if (unassigned > 0) {
     console.log(
-      `  ${_cFgYellow}${unassigned} completed issues had no assignee and were not attributed.${_cReset}`
+      `  ${_cFgYellow}${unassigned} resolved issues had no assignee and were not attributed.${_cReset}`
     );
   }
 }
@@ -1584,8 +1584,8 @@ _validateToken()
     _RESULTS.activeUsers = 0;
     _RESULTS.teamScore = 0;
 
-    if (!_RESULTS.totalJiraIssues) {
-      _RESULTS.totalJiraIssues = 0;
+    if (!_RESULTS.totalIssueResolutions) {
+      _RESULTS.totalIssueResolutions = 0;
     }
 
     // assess the results for all users
@@ -1610,8 +1610,8 @@ _validateToken()
         }
 
         // make sure completed jira issues are defined
-        if (!_RESULTS.users[user].jiraIssues) {
-          _RESULTS.users[user].jiraIssues = 0;
+        if (!_RESULTS.users[user].issueResolutions) {
+          _RESULTS.users[user].issueResolutions = 0;
         }
 
         // calculate the user score

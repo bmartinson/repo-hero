@@ -9,7 +9,7 @@ A configurable CLI toolkit for analyzing the health of git repositories and thei
 ## Features
 
 - **Weekly data gathering** — date ranges are automatically split into 7-day windows for granular trend analysis
-- **Interactive dashboard** — dark, terminal-themed single-file HTML with Chart.js visualizations; no server required
+- **Interactive dashboard** — terminal-themed single-file HTML with Chart.js visualizations; no server required
 - **Flexible time scoping** — filter by 1W / 2W / 3W / 1M / 2M / 3M / 6M / 1Y / All directly in the dashboard (default: 1W)
 - **Smart overlap detection** — when weekly and monthly data coexist, the dashboard automatically prefers the more granular data
 - **Scoring engine** — configurable weighted formula across PRs, commits, reviews, issue resolutions, LOC, and files touched (see [`score.js`](score.js))
@@ -21,6 +21,7 @@ A configurable CLI toolkit for analyzing the health of git repositories and thei
 - **Repository breakdown** — per-user doughnut charts showing contribution distribution across repositories, plus a dedicated Repos tab ranking all repositories by contribution share
 - **Consistent user colors** — chart colors are assigned by overall score rank, so the same person keeps the same color across all metric widgets
 - **Full-screen chart expansion** — any chart tile can be expanded into a near-fullscreen modal for detailed reading, without rebuilding the chart or losing its current scope
+- **Light / dark theme toggle** — a sun/moon button in the bottom-right corner switches between the light and dark palettes. The theme defaults to the time of day (light 7am–5pm, dark otherwise); your manual choice is remembered until the next natural changeover. Charts are re-rendered with a matching palette on every switch
 - **URL state persistence** — tab, scope, sort, and open profile are stored in URL query parameters so a page refresh restores your exact view
 - **Methodology page** — built-in documentation tab explaining scoring formulas, PR prediction, and outlier detection (auto-synced with `score.js` weights)
 - **Alias consolidation** — map multiple git identities to a single person
@@ -301,12 +302,13 @@ The Users tab includes a Gaussian bell curve visualization showing where each co
 
 ## Dashboard
 
-The dashboard is a self-contained HTML file with a dark, console-style theme inspired by NASA mission control interfaces. It includes four tabs:
+The dashboard is a self-contained HTML file with a console-style theme inspired by NASA mission control interfaces, available in both dark and light palettes. It includes four tabs:
 
 ### Dashboard Tab
 
 - **Trend charts** — Score, Pull Requests, Reviews, Issue Resolutions (when configured), Commits, LOC, Files Touched, Active Users, Team Score
 - **Full-screen charts** — Every chart tile has a ⛶ expand button that opens the chart in a near-fullscreen modal; close with the CLOSE button, a click outside, or `Esc`
+- **Theme toggle** — A floating sun/moon button in the bottom-right corner switches between light and dark mode from any tab. The choice is stored in `localStorage` and applied before first paint, so reloading never flashes the wrong theme
 - **Top 5 leaderboards** — Per metric, updated when the time scope changes
 
 ### Users Tab

@@ -20,6 +20,7 @@ A configurable CLI toolkit for analyzing the health of git repositories and thei
 - **Bell curve distribution** — Gaussian curve visualization of team score distribution with σ-band shading and individual user markers; follows the active Sort By metric
 - **Repository breakdown** — per-user doughnut charts showing contribution distribution across repositories, plus a dedicated Repos tab ranking all repositories by contribution share
 - **Consistent user colors** — chart colors are assigned by overall score rank, so the same person keeps the same color across all metric widgets
+- **Full-screen chart expansion** — any chart tile can be expanded into a near-fullscreen modal for detailed reading, without rebuilding the chart or losing its current scope
 - **URL state persistence** — tab, scope, sort, and open profile are stored in URL query parameters so a page refresh restores your exact view
 - **Methodology page** — built-in documentation tab explaining scoring formulas, PR prediction, and outlier detection (auto-synced with `score.js` weights)
 - **Alias consolidation** — map multiple git identities to a single person
@@ -305,6 +306,7 @@ The dashboard is a self-contained HTML file with a dark, console-style theme ins
 ### Dashboard Tab
 
 - **Trend charts** — Score, Pull Requests, Reviews, Issue Resolutions (when configured), Commits, LOC, Files Touched, Active Users, Team Score
+- **Full-screen charts** — Every chart tile has a ⛶ expand button that opens the chart in a near-fullscreen modal; close with the CLOSE button, a click outside, or `Esc`
 - **Top 5 leaderboards** — Per metric, updated when the time scope changes
 
 ### Users Tab
@@ -315,7 +317,7 @@ The dashboard is a self-contained HTML file with a dark, console-style theme ins
   - Full history with per-metric line charts
   - Paginated per-period contribution breakdown table (100 per page, newest first)
   - Repository breakdown doughnut charts (PRs, reviews, commits by repo)
-- **Score distribution** — Bell curve showing where each user falls relative to the team, synced to the active Sort By metric
+- **Score distribution** — Bell curve showing where each user falls relative to the team, synced to the active Sort By metric (also expandable to full screen)
 
 ### Repos Tab
 

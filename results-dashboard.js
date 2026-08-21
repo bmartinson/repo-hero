@@ -191,6 +191,13 @@ const bjmFaviconB64 = fs.existsSync(bjmFaviconFile)
   ? fs.readFileSync(bjmFaviconFile).toString('base64')
   : '';
 
+// Dark-on-transparent variant, used by the light theme where the white mark
+// would otherwise be invisible against the page background.
+const bjmFaviconDarkFile = path.join(__dirname, 'assets', 'bjm-favicon.png');
+const bjmFaviconDarkB64 = fs.existsSync(bjmFaviconDarkFile)
+  ? fs.readFileSync(bjmFaviconDarkFile).toString('base64')
+  : bjmFaviconB64;
+
 const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -202,6 +209,37 @@ const html = `<!DOCTYPE html>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
+<script>
+/* Resolve the theme before first paint so a saved light theme never flashes
+   dark. Mirrors the bjm-www model: the natural theme follows the clock, and a
+   manual override only survives while the same time window is still active. */
+(function () {
+  try {
+    var KEY = 'repo-hero-color-scheme';
+    var hour = new Date().getHours();
+    var natural = hour >= 7 && hour < 17 ? 'light' : 'dark';
+    var theme = natural;
+    var raw = window.localStorage.getItem(KEY);
+    if (raw) {
+      var saved = JSON.parse(raw);
+      if (saved && saved.window === natural &&
+          (saved.override === 'light' || saved.override === 'dark')) {
+        theme = saved.override;
+      } else {
+        window.localStorage.removeItem(KEY);
+      }
+    }
+    window.__RH_THEME_KEY = KEY;
+    window.__RH_THEME = theme;
+    window.__RH_NATURAL = natural;
+    if (theme === 'light') document.documentElement.classList.add('light-mode');
+  } catch (e) {
+    window.__RH_THEME = 'dark';
+    window.__RH_NATURAL = 'dark';
+    window.__RH_THEME_KEY = 'repo-hero-color-scheme';
+  }
+})();
+</script>
 <style>
 /* ─── Repo Hero Dashboard — Terminal Theme ───────────────────────────────── */
 
@@ -222,10 +260,42 @@ const html = `<!DOCTYPE html>
   --fg-orange: #ff8844;
   --border: #2a2a2a;
   --border-focus: #444444;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --overlay-backdrop: rgba(0, 0, 0, 0.85);
+  --scanline: rgba(0, 0, 0, 0.03);
   --font: 'IBM Plex Mono', 'Courier New', 'Consolas', monospace;
   --radius: 4px;
   --glow-cyan: 0 0 8px rgba(0, 221, 204, 0.3);
   --glow-info: 0 0 8px rgba(0, 170, 255, 0.3);
+}
+
+/* ─── Light Theme ────────────────────────────────────────────────────────── */
+/* Same variable contract as the dark default, so every existing rule adapts
+   without modification. Accent hues are kept but darkened for contrast on a
+   light background. */
+
+html.light-mode {
+  --bg: #f4f5f7;
+  --bg-card: #ffffff;
+  --bg-card-hover: #eceef1;
+  --fg: #2b2f36;
+  --fg-dim: #7c838d;
+  --fg-bright: #0b0d10;
+  --fg-muted: #5c636d;
+  --fg-error: #c62828;
+  --fg-warn: #9a6100;
+  --fg-success: #0f7a30;
+  --fg-info: #0062b8;
+  --fg-cyan: #00736e;
+  --fg-magenta: #7326c4;
+  --fg-orange: #b8481a;
+  --border: #d9dde3;
+  --border-focus: #a9b1bb;
+  --shadow: rgba(15, 20, 30, 0.16);
+  --scanline: rgba(0, 0, 0, 0.015);
+  --overlay-backdrop: rgba(24, 26, 30, 0.55);
+  --glow-cyan: 0 0 8px rgba(0, 115, 110, 0.18);
+  --glow-info: 0 0 8px rgba(0, 98, 184, 0.18);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -650,7 +720,7 @@ header {
   opacity: 0;
   transition: opacity 0.15s;
   max-width: 260px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  box-shadow: 0 4px 20px var(--shadow);
   line-height: 1.5;
 }
 
@@ -816,7 +886,7 @@ header {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--overlay-backdrop);
   z-index: 1000;
   overflow-y: auto;
   backdrop-filter: blur(4px);
@@ -1256,9 +1326,55 @@ body::after {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 0, 0, 0.03) 2px,
-    rgba(0, 0, 0, 0.03) 4px
+    var(--scanline) 2px,
+    var(--scanline) 4px
   );
+}
+
+/* ─── Theme Toggle ───────────────────────────────────────────────────────── */
+
+.theme-toggle {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--fg);
+  cursor: pointer;
+  box-shadow: 0 2px 6px var(--shadow);
+  transition:
+    background 0.3s,
+    color 0.3s,
+    border-color 0.3s,
+    box-shadow 0.3s,
+    opacity 0.15s;
+}
+
+.theme-toggle:hover { opacity: 0.75; }
+
+.theme-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: block;
+  user-select: none;
+}
+
+/* Show the icon representing the CURRENT theme, matching bjm-www. */
+.theme-toggle .icon-sun { display: none; }
+html.light-mode .theme-toggle .icon-sun { display: block; }
+html.light-mode .theme-toggle .icon-moon { display: none; }
+
+@media print {
+  .theme-toggle { display: none; }
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────────── */
@@ -1361,6 +1477,11 @@ body::after {
 }
 
 .site-footer a:hover .footer-icon { opacity: 1; }
+
+/* The BJM mark ships in white and dark variants; show the readable one. */
+.footer-icon-light-theme { display: none; }
+html.light-mode .footer-icon-light-theme { display: inline-block; }
+html.light-mode .footer-icon-dark-theme { display: none; }
 
 </style>
 </head>
@@ -1711,6 +1832,12 @@ ${hasIssueResolutions ? `<tr><td>Issue Resolutions</td><td>Jira issues resolved 
   </div>
 </div>
 
+<!-- Theme Toggle -->
+<button class="theme-toggle" id="theme-toggle" type="button" title="Switch theme" aria-label="Switch theme">
+  <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+  <svg class="icon-sun" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zM11 1h2v3h-2zM11 20h2v3h-2zM1 11h3v2H1zM20 11h3v2h-3zM4.22 5.64l1.42-1.42 2.12 2.12-1.41 1.41zM16.24 17.66l1.41-1.41 2.12 2.12-1.41 1.41zM5.64 19.78l-1.42-1.42 2.12-2.12 1.41 1.41zM17.66 7.76l-1.41-1.41 2.12-2.12 1.41 1.41z"/></svg>
+</button>
+
 <!-- Footer -->
 <footer class="site-footer">
   <div class="footer-inner">
@@ -1720,7 +1847,8 @@ ${hasIssueResolutions ? `<tr><td>Issue Resolutions</td><td>Jira issues resolved 
     </a>
     <span class="footer-sep">|</span>
     <a href="https://www.brianmartinson.com" target="_blank" rel="noopener">
-      <img class="footer-icon" src="data:image/png;base64,${bjmFaviconB64}" alt="BJM">
+      <img class="footer-icon footer-icon-dark-theme" src="data:image/png;base64,${bjmFaviconB64}" alt="BJM">
+      <img class="footer-icon footer-icon-light-theme" src="data:image/png;base64,${bjmFaviconDarkB64}" alt="BJM">
       By Brian Martinson
     </a>
   </div>
@@ -1753,7 +1881,75 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     { key: 'filesTouched', label: 'Files Touched',  color: '#ffaa00', format: v => v.toFixed(0) },
   ];
 
-  const CHART_COLORS = ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff'];
+  // ─── Theming ───────────────────────────────────────────────────────────
+  // Per-theme override for the fixed METRICS accent colors. The dark values on
+  // METRICS are bright neons that wash out against a white background.
+  const METRIC_LIGHT_COLORS = {
+    score: '#00807a',
+    effectivePRs: '#0069c2',
+    reviews: '#7b2ecc',
+    issueResolutions: '#2f52c9',
+    commits: '#0f8a35',
+    loc: '#c2521a',
+    filesTouched: '#a86b00',
+  };
+
+  function metricColor(m) {
+    return currentTheme === 'light' ? METRIC_LIGHT_COLORS[m.key] || m.color : m.color;
+  }
+
+  // Chart.js cannot read CSS custom properties, so chart "chrome" colors are
+  // mirrored here per theme and re-applied whenever the theme changes.
+
+  const PALETTES = {
+    dark:  ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff'],
+    light: ['#00807a','#0069c2','#7b2ecc','#0f8a35','#c2521a','#a86b00','#c62828','#2e9e4f','#c2367d','#3d7ea6'],
+  };
+
+  const PIE_PALETTES = {
+    dark:  ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff','#ff9999','#66ffcc','#bb88ff','#ffcc00','#44ddff','#ff6666','#99ff99','#dd88ff','#ffdd44','#88ccff'],
+    light: ['#00807a','#0069c2','#7b2ecc','#0f8a35','#c2521a','#a86b00','#c62828','#2e9e4f','#c2367d','#3d7ea6','#b5484a','#0d8f7a','#6b3fb5','#9a7400','#0f7fa6','#b03a3a','#3f8f4a','#8a3fb5','#96760d','#2f6f9e'],
+  };
+
+  const CHART_THEME = {
+    dark: {
+      tick: '#777777', tickDim: '#555555', border: '#2a2a2a',
+      grid: '#1a1a1a', gridSoft: 'rgba(255,255,255,0.04)',
+      tooltipBg: '#1a1a1a', tooltipBorder: '#333333',
+      legendText: '#b0b8c4',
+      pieTooltipBg: '#161b22', pieTooltipTitle: '#e6edf3',
+      pieTooltipBody: '#b0b8c4', pieTooltipBorder: '#30363d',
+      pieBorder: '#0d1117',
+      curve: 'rgba(255,255,255,0.5)',
+      annMean: 'rgba(255,255,255,0.4)', annMeanLabel: 'rgba(255,255,255,0.7)',
+      annSd: 'rgba(255,255,255,0.15)', annSdLabel: 'rgba(255,255,255,0.35)',
+      annLabelBg: 'rgba(0,0,0,0.6)',
+      distTooltipBg: 'rgba(0,0,0,0.85)', distTooltipBorder: 'rgba(255,255,255,0.1)',
+      rank: ['rgba(255,170,0,0.15);color:#ffaa00','rgba(200,200,200,0.1);color:#cccccc','rgba(205,127,50,0.12);color:#cd7f32'],
+      rankRest: 'background:rgba(85,85,85,0.15);color:var(--fg-dim)',
+    },
+    light: {
+      tick: '#5c636d', tickDim: '#7c838d', border: '#d9dde3',
+      grid: '#e6e9ee', gridSoft: 'rgba(0,0,0,0.06)',
+      tooltipBg: '#ffffff', tooltipBorder: '#c9cfd7',
+      legendText: '#2b2f36',
+      pieTooltipBg: '#ffffff', pieTooltipTitle: '#0b0d10',
+      pieTooltipBody: '#2b2f36', pieTooltipBorder: '#c9cfd7',
+      pieBorder: '#ffffff',
+      curve: 'rgba(20,25,35,0.45)',
+      annMean: 'rgba(20,25,35,0.45)', annMeanLabel: 'rgba(20,25,35,0.75)',
+      annSd: 'rgba(20,25,35,0.18)', annSdLabel: 'rgba(20,25,35,0.4)',
+      annLabelBg: 'rgba(255,255,255,0.85)',
+      distTooltipBg: 'rgba(255,255,255,0.95)', distTooltipBorder: 'rgba(0,0,0,0.12)',
+      rank: ['rgba(154,97,0,0.15);color:#9a6100','rgba(90,98,110,0.14);color:#5c636d','rgba(150,90,35,0.15);color:#8a5320'],
+      rankRest: 'background:rgba(120,128,138,0.14);color:var(--fg-dim)',
+    },
+  };
+
+  let currentTheme = window.__RH_THEME === 'light' ? 'light' : 'dark';
+  function chartColors() { return PALETTES[currentTheme]; }
+  function pieColors() { return PIE_PALETTES[currentTheme]; }
+  function CT() { return CHART_THEME[currentTheme]; }
 
   const SCORE_WEIGHTS = ${JSON.stringify(WEIGHTS)};
 
@@ -1785,13 +1981,13 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     scored.sort((a, b) => b.value - a.value);
     const map = {};
     scored.forEach((u, i) => {
-      map[u.name] = CHART_COLORS[i % CHART_COLORS.length];
+      map[u.name] = chartColors()[i % chartColors().length];
     });
     return map;
   }
 
   function getUserColor(name) {
-    return userColorMap[name] || CHART_COLORS[0];
+    return userColorMap[name] || chartColors()[0];
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────
@@ -1955,8 +2151,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
 
   // ─── Chart defaults ────────────────────────────────────────────────────
 
-  Chart.defaults.color = '#777777';
-  Chart.defaults.borderColor = '#2a2a2a';
+  Chart.defaults.color = CT().tick;
+  Chart.defaults.borderColor = CT().border;
   Chart.defaults.font.family = "'IBM Plex Mono', 'Courier New', monospace";
   Chart.defaults.font.size = 11;
 
@@ -1971,8 +2167,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
         plugins: {
           legend: { display: datasets.length > 1, position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 10 } } },
           tooltip: {
-            backgroundColor: '#1a1a1a',
-            borderColor: '#333',
+            backgroundColor: CT().tooltipBg,
+            borderColor: CT().tooltipBorder,
             borderWidth: 1,
             titleFont: { size: 11 },
             bodyFont: { size: 11 },
@@ -1980,8 +2176,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
           }
         },
         scales: {
-          x: { grid: { color: '#1a1a1a' }, ticks: { maxRotation: 45, font: { size: 10 } } },
-          y: { grid: { color: '#1a1a1a' }, ticks: { callback: yFormat || (v => v), font: { size: 10 } }, beginAtZero: true }
+          x: { grid: { color: CT().grid }, ticks: { maxRotation: 45, font: { size: 10 } } },
+          y: { grid: { color: CT().grid }, ticks: { callback: yFormat || (v => v), font: { size: 10 } }, beginAtZero: true }
         },
         elements: {
           point: { radius: 2, hoverRadius: 5 },
@@ -2013,8 +2209,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#1a1a1a',
-            borderColor: '#333',
+            backgroundColor: CT().tooltipBg,
+            borderColor: CT().tooltipBorder,
             borderWidth: 1,
             titleFont: { size: 11 },
             bodyFont: { size: 11 },
@@ -2024,8 +2220,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
           }
         },
         scales: {
-          x: { grid: { color: '#1a1a1a' }, ticks: { maxRotation: 35, font: { size: 10 } } },
-          y: { grid: { color: '#1a1a1a' }, ticks: { callback: yFormat || (v => v), font: { size: 10 } }, beginAtZero: true }
+          x: { grid: { color: CT().grid }, ticks: { maxRotation: 35, font: { size: 10 } } },
+          y: { grid: { color: CT().grid }, ticks: { callback: yFormat || (v => v), font: { size: 10 } }, beginAtZero: true }
         }
       }
     };
@@ -2201,8 +2397,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       const t = u.totals;
       const o = outliers[u.name] || {};
       const displayName = u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
-      const rankColors = ['rgba(255,170,0,0.15);color:#ffaa00','rgba(200,200,200,0.1);color:#ccc','rgba(205,127,50,0.12);color:#cd7f32'];
-      const rankStyle = i < 3 ? 'background:' + rankColors[i] : 'background:rgba(85,85,85,0.15);color:var(--fg-dim)';
+      const rankColors = CT().rank;
+      const rankStyle = i < 3 ? 'background:' + rankColors[i] : CT().rankRest;
       const fire = (key) => o[key] ? '<span class="fire-badge" onclick="event.stopPropagation();showFirePopup(event,\\'' + key + '\\',+' + o[key].zScore + ')">🔥</span>' : '';
       return '<div class="user-card" onclick="openProfile(\\'' + u.name.replace(/'/g, "\\\\'") + '\\')">'
         + '<div class="user-card-header">'
@@ -2284,8 +2480,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     const grid = document.getElementById('repos-grid');
     grid.innerHTML = repoList.map((r, i) => {
       const pct = totalScore > 0 ? (r.score / totalScore * 100) : 0;
-      const rankColors = ['rgba(255,170,0,0.15);color:#ffaa00','rgba(200,200,200,0.1);color:#ccc','rgba(205,127,50,0.12);color:#cd7f32'];
-      const rankStyle = i < 3 ? 'background:' + rankColors[i] : 'background:rgba(85,85,85,0.15);color:var(--fg-dim)';
+      const rankColors = CT().rank;
+      const rankStyle = i < 3 ? 'background:' + rankColors[i] : CT().rankRest;
       const star = popularRepos[r.repo] ? ' <span class="popularity-badge" onclick="event.stopPropagation();showPopularityPopup(event,' + popularRepos[r.repo] + ')">⭐</span>' : '';
       return '<div class="repo-card">'
         + '<div class="repo-card-header">'
@@ -2396,7 +2592,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     const curveDataset = {
       type: 'line',
       data: curvePoints,
-      borderColor: 'rgba(255, 255, 255, 0.5)',
+      borderColor: CT().curve,
       borderWidth: 2,
       fill: false,
       pointRadius: 0,
@@ -2431,8 +2627,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     annotations.mean = {
       ...lineStyle,
       xMin: mean, xMax: mean,
-      borderColor: 'rgba(255,255,255,0.4)',
-      label: { ...lineStyle.label, content: 'μ', color: 'rgba(255,255,255,0.7)', backgroundColor: 'rgba(0,0,0,0.6)' }
+      borderColor: CT().annMean,
+      label: { ...lineStyle.label, content: 'μ', color: CT().annMeanLabel, backgroundColor: CT().annLabelBg }
     };
     [-2, -1, 1, 2].forEach(n => {
       const val = mean + n * stdDev;
@@ -2440,8 +2636,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
         annotations['sd' + n] = {
           ...lineStyle,
           xMin: val, xMax: val,
-          borderColor: 'rgba(255,255,255,0.15)',
-          label: { ...lineStyle.label, content: (n > 0 ? '+' : '') + n + 'σ', color: 'rgba(255,255,255,0.35)', backgroundColor: 'rgba(0,0,0,0.6)' }
+          borderColor: CT().annSd,
+          label: { ...lineStyle.label, content: (n > 0 ? '+' : '') + n + 'σ', color: CT().annSdLabel, backgroundColor: CT().annLabelBg }
         };
       }
     });
@@ -2472,8 +2668,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
             },
             titleFont: { family: 'IBM Plex Mono', size: 12 },
             bodyFont: { family: 'IBM Plex Mono', size: 11 },
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            borderColor: 'rgba(255,255,255,0.1)',
+            backgroundColor: CT().distTooltipBg,
+            borderColor: CT().distTooltipBorder,
             borderWidth: 1,
           }
         },
@@ -2482,15 +2678,15 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
             type: 'linear',
             min: xMin,
             max: xMax,
-            ticks: { color: '#555', font: { family: 'IBM Plex Mono', size: 10 }, callback: function(v) { return v.toFixed(0); } },
-            grid: { color: 'rgba(255,255,255,0.04)' },
-            title: { display: true, text: metricDef.label, color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
+            ticks: { color: CT().tickDim, font: { family: 'IBM Plex Mono', size: 10 }, callback: function(v) { return v.toFixed(0); } },
+            grid: { color: CT().gridSoft },
+            title: { display: true, text: metricDef.label, color: CT().tickDim, font: { family: 'IBM Plex Mono', size: 11 } }
           },
           y: {
             beginAtZero: true,
             ticks: { display: false },
-            grid: { color: 'rgba(255,255,255,0.04)' },
-            title: { display: true, text: 'Density', color: '#555', font: { family: 'IBM Plex Mono', size: 11 } }
+            grid: { color: CT().gridSoft },
+            title: { display: true, text: 'Density', color: CT().tickDim, font: { family: 'IBM Plex Mono', size: 11 } }
           }
         }
       }
@@ -2667,8 +2863,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
         [{
           label: m.label,
           data,
-          borderColor: m.color,
-          backgroundColor: m.color + '20',
+          borderColor: metricColor(m),
+          backgroundColor: metricColor(m) + '20',
           fill: true
         }],
         m.format
@@ -2677,7 +2873,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
 
     // Render repository breakdown pie charts
     if (activeRepos.length > 0) {
-      const PIE_COLORS = ['#00ddcc','#00aaff','#cc66ff','#22cc44','#ff8844','#ffaa00','#ff3333','#88ff88','#ff66aa','#aaddff','#ff9999','#66ffcc','#bb88ff','#ffcc00','#44ddff','#ff6666','#99ff99','#dd88ff','#ffdd44','#88ccff'];
+      const PIE_COLORS = pieColors();
       const shortName = (r) => r.replace(/^@[^/]+\\//, '');
 
       const pieOpts = (fmt) => ({
@@ -2686,13 +2882,13 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
         plugins: {
           legend: {
             position: 'bottom',
-            labels: { color: '#b0b8c4', font: { family: '\\'JetBrains Mono\\',monospace', size: 10 }, padding: 8, boxWidth: 12 }
+            labels: { color: CT().legendText, font: { family: '\\'JetBrains Mono\\',monospace', size: 10 }, padding: 8, boxWidth: 12 }
           },
           tooltip: {
-            backgroundColor: '#161b22',
-            titleColor: '#e6edf3',
-            bodyColor: '#b0b8c4',
-            borderColor: '#30363d',
+            backgroundColor: CT().pieTooltipBg,
+            titleColor: CT().pieTooltipTitle,
+            bodyColor: CT().pieTooltipBody,
+            borderColor: CT().pieTooltipBorder,
             borderWidth: 1,
             callbacks: {
               label: function(ctx) {
@@ -2719,7 +2915,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
               datasets: [{
                 data: scoredRepos.map(r => parseFloat(repoScores[r].toFixed(1))),
                 backgroundColor: scoredRepos.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]),
-                borderColor: '#0d1117',
+                borderColor: CT().pieBorder,
                 borderWidth: 2
               }]
             },
@@ -2884,6 +3080,64 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     };
   }
 
+  // ─── Theme Toggle ──────────────────────────────────────────────────────
+  // Chart.js bakes colors into each instance at construction time, so a theme
+  // change has to rebuild every chart rather than just swap CSS variables.
+
+  function naturalTheme() {
+    const hour = new Date().getHours();
+    return hour >= 7 && hour < 17 ? 'light' : 'dark';
+  }
+
+  function applyTheme(theme, persist) {
+    currentTheme = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.classList.toggle('light-mode', currentTheme === 'light');
+
+    const btn = document.getElementById('theme-toggle');
+    if (btn) {
+      const label = 'Switch to ' + (currentTheme === 'light' ? 'dark' : 'light') + ' mode';
+      btn.title = label;
+      btn.setAttribute('aria-label', label);
+    }
+
+    Chart.defaults.color = CT().tick;
+    Chart.defaults.borderColor = CT().border;
+
+    if (persist) {
+      try {
+        localStorage.setItem(
+          window.__RH_THEME_KEY,
+          JSON.stringify({ override: currentTheme, window: window.__RH_NATURAL })
+        );
+      } catch (e) { /* storage unavailable — theme still applies for this session */ }
+    }
+
+    renderAll();
+
+    // The distribution chart only renders with the Users tab, and profile
+    // charts live in an overlay; refresh whichever is currently on screen.
+    const profileOverlay = document.getElementById('profile-overlay');
+    if (profileOverlay && profileOverlay.classList.contains('visible')) {
+      const nameEl = document.querySelector('.profile-name');
+      const key = nameEl ? nameEl.textContent.trim().toLowerCase() : null;
+      if (key && DATA.users[key]) openProfile(key);
+    }
+  }
+
+  window.toggleTheme = function() {
+    applyTheme(currentTheme === 'light' ? 'dark' : 'light', true);
+  };
+
+  // Mirrors bjm-www: when the clock crosses into a new window, drop the manual
+  // override and follow the natural theme again.
+  setInterval(function() {
+    const natural = naturalTheme();
+    if (natural === window.__RH_NATURAL) return;
+    window.__RH_NATURAL = natural;
+    try { localStorage.removeItem(window.__RH_THEME_KEY); } catch (e) {}
+    applyTheme(natural, false);
+  }, 60000);
+
   // ─── Tab switching ────────────────────────────────────────────────────
 
   window.switchTab = function(tab) {
@@ -2986,6 +3240,15 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     if (urlState.tab !== 'dashboard') {
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === urlState.tab));
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + urlState.tab));
+    }
+
+    // Wire the theme toggle and sync its label with the pre-paint theme.
+    const themeBtn = document.getElementById('theme-toggle');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => toggleTheme());
+      const label = 'Switch to ' + (currentTheme === 'light' ? 'dark' : 'light') + ' mode';
+      themeBtn.title = label;
+      themeBtn.setAttribute('aria-label', label);
     }
 
     renderAll();

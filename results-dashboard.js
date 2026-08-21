@@ -1165,6 +1165,85 @@ header {
   white-space: nowrap;
 }
 
+/* ─── Chart Full-Screen Modal ────────────────────────────────────────────── */
+
+.chart-expand {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-family: var(--font);
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.chart-expand:hover { color: var(--fg-bright); border-color: var(--fg-dim); }
+
+/* The distribution panel has no header row, so anchor its button to the corner. */
+.dist-section { position: relative; }
+.dist-section .chart-expand { position: absolute; top: 18px; right: 20px; }
+
+.overlay-chart.visible {
+  align-items: center;
+  justify-content: center;
+  padding: 3vh 3vw;
+  overflow: hidden;
+}
+
+.chart-modal {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 94vw;
+  height: 90vh;
+  padding: 18px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.chart-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.chart-modal-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.chart-modal-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.chart-modal-body > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  position: relative;
+}
+
+/* ID selectors so these beat the '!important' sizing on .widget-chart canvas
+   and .dist-chart-wrap canvas, including inside the max-width:900px query. */
+#chart-modal-body canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* ─── Scan-line overlay (subtle CRT effect) ──────────────────────────────── */
 
 body::after {
@@ -1373,9 +1452,10 @@ ${hasIssueResolutions ? `<button class="sort-btn" data-sort="issueResolutions" o
 
     <!-- Score Distribution -->
     <div class="dist-section" id="dist-section">
+      <button class="chart-expand" type="button" title="Expand to full screen" aria-label="Expand chart to full screen" data-chart="dist-chart-wrap" data-title-src="dist-title">&#9974;</button>
       <div class="dist-title" id="dist-title">SCORE DISTRIBUTION</div>
       <div class="dist-subtitle" id="dist-subtitle"></div>
-      <div class="dist-chart-wrap">
+      <div class="dist-chart-wrap" id="dist-chart-wrap">
         <canvas id="dist-chart"></canvas>
       </div>
       <div class="dist-legend" id="dist-legend"></div>
@@ -1618,6 +1698,17 @@ ${hasIssueResolutions ? `<tr><td>Issue Resolutions</td><td>Jira issues resolved 
 <!-- User Profile Overlay -->
 <div class="overlay" id="profile-overlay" onclick="if(event.target===this)closeProfile()">
   <div class="profile-panel" id="profile-panel"></div>
+</div>
+
+<!-- Full-Screen Chart Overlay -->
+<div class="overlay overlay-chart" id="chart-overlay" onclick="if(event.target===this)closeChartModal()">
+  <div class="chart-modal" id="chart-modal">
+    <div class="chart-modal-header">
+      <span class="chart-modal-title" id="chart-modal-title"></span>
+      <button class="profile-close" type="button" onclick="closeChartModal()">&#10005; CLOSE</button>
+    </div>
+    <div class="chart-modal-body" id="chart-modal-body"></div>
+  </div>
 </div>
 
 <!-- Footer -->
@@ -2004,9 +2095,11 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     if (grid.children.length === 0) {
       grid.innerHTML = METRICS.map((m, i) =>
         '<div class="widget">'
-          + '<div class="widget-header"><span class="widget-title" id="widget-title-' + m.key + '">' + m.label + ' Trends</span></div>'
+          + '<div class="widget-header"><span class="widget-title" id="widget-title-' + m.key + '">' + m.label + ' Trends</span>'
+            + '<button class="chart-expand" type="button" title="Expand to full screen" aria-label="Expand chart to full screen" data-chart="chart-wrap-' + m.key + '" data-title-src="widget-title-' + m.key + '">&#9974;</button>'
+          + '</div>'
           + '<div class="widget-body">'
-            + '<div class="widget-chart"><canvas id="chart-' + m.key + '"></canvas></div>'
+            + '<div class="widget-chart" id="chart-wrap-' + m.key + '"><canvas id="chart-' + m.key + '"></canvas></div>'
             + '<div class="widget-leaderboard" id="lb-' + m.key + '"></div>'
           + '</div>'
         + '</div>'
@@ -2700,6 +2793,61 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     pushState();
   };
 
+  // ─── Full-Screen Chart Modal ───────────────────────────────────────────
+
+  // Rather than building a second Chart.js instance, the existing chart
+  // container is physically moved into the modal and moved back on close. That
+  // keeps a single live chart per canvas, so re-renders triggered while the
+  // modal is open (scope/sort changes) still target the right element.
+  let expandedChart = null;
+
+  function resizeAllCharts() {
+    Object.values(charts).forEach(c => c.resize());
+    if (distChart) distChart.resize();
+  }
+
+  window.openChartModal = function(containerId, title) {
+    if (expandedChart) return;
+
+    const node = document.getElementById(containerId);
+    if (!node) return;
+
+    // Anchor the original slot so the node returns to the exact same position.
+    const placeholder = document.createComment('chart-slot:' + containerId);
+    node.parentNode.insertBefore(placeholder, node);
+
+    document.getElementById('chart-modal-title').textContent = title || '';
+    document.getElementById('chart-modal-body').appendChild(node);
+    document.getElementById('chart-overlay').classList.add('visible');
+    document.body.style.overflow = 'hidden';
+
+    expandedChart = { node, placeholder };
+    resizeAllCharts();
+  };
+
+  window.closeChartModal = function() {
+    if (!expandedChart) return;
+
+    const { node, placeholder } = expandedChart;
+    placeholder.parentNode.insertBefore(node, placeholder);
+    placeholder.remove();
+    expandedChart = null;
+
+    document.getElementById('chart-overlay').classList.remove('visible');
+    document.body.style.overflow = '';
+    resizeAllCharts();
+  };
+
+  // Delegated so widgets rendered after load still get the behavior.
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.chart-expand');
+    if (!btn) return;
+    const titleEl = btn.dataset.titleSrc
+      ? document.getElementById(btn.dataset.titleSrc)
+      : null;
+    openChartModal(btn.dataset.chart, titleEl ? titleEl.textContent : '');
+  });
+
   // ─── Tab switching ─────────────────────────────────────────────────────
 
   // ─── URL State Persistence ─────────────────────────────────────────────
@@ -2850,9 +2998,14 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     setTimeout(updateScrollArrows, 100);
   }
 
-  // Handle escape key to close profile
+  // Handle escape key to close the topmost overlay
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeProfile();
+    if (e.key !== 'Escape') return;
+    if (expandedChart) {
+      closeChartModal();
+      return;
+    }
+    closeProfile();
   });
 
   init();

@@ -1916,6 +1916,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       tick: '#777777', tickDim: '#555555', border: '#2a2a2a',
       grid: '#1a1a1a', gridSoft: 'rgba(255,255,255,0.04)',
       tooltipBg: '#1a1a1a', tooltipBorder: '#333333',
+      tooltipTitle: '#e6edf3', tooltipBody: '#b0b8c4',
       legendText: '#b0b8c4',
       pieTooltipBg: '#161b22', pieTooltipTitle: '#e6edf3',
       pieTooltipBody: '#b0b8c4', pieTooltipBorder: '#30363d',
@@ -1925,6 +1926,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       annSd: 'rgba(255,255,255,0.15)', annSdLabel: 'rgba(255,255,255,0.35)',
       annLabelBg: 'rgba(0,0,0,0.6)',
       distTooltipBg: 'rgba(0,0,0,0.85)', distTooltipBorder: 'rgba(255,255,255,0.1)',
+      distTooltipTitle: '#e6edf3', distTooltipBody: '#b0b8c4',
       rank: ['rgba(255,170,0,0.15);color:#ffaa00','rgba(200,200,200,0.1);color:#cccccc','rgba(205,127,50,0.12);color:#cd7f32'],
       rankRest: 'background:rgba(85,85,85,0.15);color:var(--fg-dim)',
     },
@@ -1932,6 +1934,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       tick: '#5c636d', tickDim: '#7c838d', border: '#d9dde3',
       grid: '#e6e9ee', gridSoft: 'rgba(0,0,0,0.06)',
       tooltipBg: '#ffffff', tooltipBorder: '#c9cfd7',
+      tooltipTitle: '#0b0d10', tooltipBody: '#2b2f36',
       legendText: '#2b2f36',
       pieTooltipBg: '#ffffff', pieTooltipTitle: '#0b0d10',
       pieTooltipBody: '#2b2f36', pieTooltipBorder: '#c9cfd7',
@@ -1941,6 +1944,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       annSd: 'rgba(20,25,35,0.18)', annSdLabel: 'rgba(20,25,35,0.4)',
       annLabelBg: 'rgba(255,255,255,0.85)',
       distTooltipBg: 'rgba(255,255,255,0.95)', distTooltipBorder: 'rgba(0,0,0,0.12)',
+      distTooltipTitle: '#0b0d10', distTooltipBody: '#2b2f36',
       rank: ['rgba(154,97,0,0.15);color:#9a6100','rgba(90,98,110,0.14);color:#5c636d','rgba(150,90,35,0.15);color:#8a5320'],
       rankRest: 'background:rgba(120,128,138,0.14);color:var(--fg-dim)',
     },
@@ -2153,6 +2157,10 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
 
   Chart.defaults.color = CT().tick;
   Chart.defaults.borderColor = CT().border;
+  // Chart.js defaults tooltip text to white, which is invisible on the light theme.
+  Chart.defaults.plugins.tooltip.titleColor = CT().tooltipTitle;
+  Chart.defaults.plugins.tooltip.bodyColor = CT().tooltipBody;
+  Chart.defaults.plugins.tooltip.footerColor = CT().tooltipBody;
   Chart.defaults.font.family = "'IBM Plex Mono', 'Courier New', monospace";
   Chart.defaults.font.size = 11;
 
@@ -2169,6 +2177,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
           tooltip: {
             backgroundColor: CT().tooltipBg,
             borderColor: CT().tooltipBorder,
+            titleColor: CT().tooltipTitle,
+            bodyColor: CT().tooltipBody,
             borderWidth: 1,
             titleFont: { size: 11 },
             bodyFont: { size: 11 },
@@ -2211,6 +2221,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
           tooltip: {
             backgroundColor: CT().tooltipBg,
             borderColor: CT().tooltipBorder,
+            titleColor: CT().tooltipTitle,
+            bodyColor: CT().tooltipBody,
             borderWidth: 1,
             titleFont: { size: 11 },
             bodyFont: { size: 11 },
@@ -2670,6 +2682,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
             bodyFont: { family: 'IBM Plex Mono', size: 11 },
             backgroundColor: CT().distTooltipBg,
             borderColor: CT().distTooltipBorder,
+            titleColor: CT().distTooltipTitle,
+            bodyColor: CT().distTooltipBody,
             borderWidth: 1,
           }
         },
@@ -3102,6 +3116,9 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
 
     Chart.defaults.color = CT().tick;
     Chart.defaults.borderColor = CT().border;
+    Chart.defaults.plugins.tooltip.titleColor = CT().tooltipTitle;
+    Chart.defaults.plugins.tooltip.bodyColor = CT().tooltipBody;
+    Chart.defaults.plugins.tooltip.footerColor = CT().tooltipBody;
 
     if (persist) {
       try {

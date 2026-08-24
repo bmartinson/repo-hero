@@ -660,6 +660,82 @@ async function fetchAllPullRequests(repo) {
 }
 
 /**
+ * File extensions that should be excluded from lines-of-code (LOC) tallies.
+ * These are typically auto-generated dependency manifests (e.g. package.json,
+ * package-lock.json, composer.lock) whose line counts don't reflect actual
+ * authored code changes.
+ */
+const _LOC_EXCLUDED_EXTENSIONS = ['.lock', '.json'];
+
+/**
+ * Determines whether a file's changes should be excluded from LOC tallies
+ * based on its extension (e.g. `.lock`, `.json` manifest files).
+ *
+ * @param {string} filename The path/filename of the changed file.
+ * @returns {boolean} True if the file should be excluded from LOC counts.
+ */
+function isLOCExcludedFile(filename) {
+  if (!filename) {
+    return false;
+  }
+
+  const ext = path.extname(filename).toLowerCase();
+  return _LOC_EXCLUDED_EXTENSIONS.includes(ext);
+}
+
+/**
+ * Fetches the per-file change list for a pull request and sums the
+ * additions/deletions, excluding files whose extension is in
+ * `_LOC_EXCLUDED_EXTENSIONS` (e.g. `.lock`, `.json` manifests) so that
+ * dependency lockfile/manifest churn doesn't inflate LOC counts.
+ *
+ * @param {string} prUrl The `pull_request.url` (or `pulls/:number`) API URL for the PR.
+ * @returns {Promise<number>} The total LOC (additions + deletions) for the PR,
+ * excluding manifest/lockfile changes.
+ */
+async function getFilteredPullRequestLOC(prUrl) {
+  let loc = 0;
+  let page = 1;
+  let hasMorePages = true;
+  const basePath = prUrl.replace('https://api.github.com', '');
+
+  while (hasMorePages) {
+    try {
+      const response = await getFromGitHubAPI(`${basePath}/files`, {
+        params: {
+          per_page: 100,
+          page: page,
+        },
+      });
+
+      const files = Array.isArray(response?.data) ? response.data : [];
+
+      files.forEach(file => {
+        if (isLOCExcludedFile(file?.filename)) {
+          return;
+        }
+
+        const additions = file?.additions ? +file.additions : 0;
+        const deletions = file?.deletions ? +file.deletions : 0;
+        loc += additions + deletions;
+      });
+
+      const linkHeader = response?.headers?.link;
+      hasMorePages = linkHeader && linkHeader.includes('rel="next"');
+      page++;
+    } catch (error) {
+      console.error(
+        `Error fetching PR files for ${basePath}:`,
+        error.message || error
+      );
+      hasMorePages = false;
+    }
+  }
+
+  return loc;
+}
+
+/**
  * Informs you whether a given project exists on the local disk or not. If not,
  * it will clone it from the remote origin.
  *
@@ -1282,18 +1358,18 @@ function _processProjects() {
               getFromGitHubAPI(
                 `${pr.pull_request.url.replace('https://api.github.com', '')}`
               )
-                .then(prdResponse => {
-                  const additions = prdResponse?.data.additions
-                    ? +prdResponse?.data.additions
-                    : 0;
-                  const deletions = prdResponse?.data.deletions
-                    ? +prdResponse?.data.deletions
-                    : 0;
+                .then(async prdResponse => {
                   const changedFiles = prdResponse?.data.changed_files
                     ? +prdResponse?.data.changed_files
                     : 0;
 
-                  _RESULTS.users[alias].loc += additions + deletions;
+                  // Tally LOC from the per-file change list so that manifest
+                  // files (.lock, .json) don't inflate the LOC count.
+                  const filteredLoc = await getFilteredPullRequestLOC(
+                    pr.pull_request.url
+                  );
+
+                  _RESULTS.users[alias].loc += filteredLoc;
                   _RESULTS.users[alias].filesTouched += changedFiles;
 
                   // Track per-repo loc and filesTouched
@@ -1308,7 +1384,7 @@ function _processProjects() {
                       };
                     }
                     _RESULTS.users[alias].repoBreakdown[repoName].loc +=
-                      additions + deletions;
+                      filteredLoc;
                     _RESULTS.users[alias].repoBreakdown[
                       repoName
                     ].filesTouched += changedFiles;

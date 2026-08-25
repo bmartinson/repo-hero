@@ -232,6 +232,8 @@
     "Nick Wiesjahn": "Software Engineer",
     "Nathan Orttung": "Software Engineer"
   },
+  "userEndDates": {
+  },
   "tokens": {
     "github": "XXXXXXXXX",
     "smtp": {

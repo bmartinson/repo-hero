@@ -56,7 +56,7 @@ The dashboard opens automatically in your default browser.
 
 ## Configuration
 
-Create a `config.json` in the project root (it is gitignored). All top-level properties are required except `aliases`, `ignoreUsers`, `commitsPerPullRequest`, `roles`, and `userRoles`.
+Create a `config.json` in the project root (it is gitignored). All top-level properties are required except `aliases`, `ignoreUsers`, `commitsPerPullRequest`, `roles`, `userRoles`, and `userEndDates`.
 
 ```jsonc
 {
@@ -105,6 +105,14 @@ Create a `config.json` in the project root (it is gitignored). All top-level pro
     // optional — maps a canonical name (matching the "aliases" keys) to a "roles" entry
     "Jane Smith": "Senior Software Engineer",
     "Brian Martinson": "Software Engineer",
+  },
+  "userEndDates": {
+    // optional and opt-in — only set this for contributors who have left/been offboarded.
+    // Clamps the weekly-rate normalization window used by the attainment bar so time after
+    // someone's departure doesn't keep silently deflating their rating. Leaving a currently
+    // active person's entry out means silence still counts against them as expected — this is
+    // never inferred automatically from inactivity.
+    "Jane Smith": "2026-03-15",
   },
   "jira": {
     // optional — omit to disable Jira metrics
@@ -337,8 +345,9 @@ The dashboard is a self-contained HTML file with a console-style theme inspired 
 
 - **Contributor grid** — All active users ranked by the selected Sort By metric, with outlier badges
 - **Consistent colors** — Each user keeps the same color across all chart widgets based on their overall score rank
-- **Role badge & attainment bar** — When a user has an assigned role (see `roles`/`userRoles` in [Configuration](#configuration)), their tile shows the role name plus a thin bar with a dot indicating how their current-scope activity compares to that role's satisfactory/goal targets — far left is below satisfactory (❗), the middle is right at satisfactory (🫥), and the far right is at or beyond goal on every applicable metric (🤩). Targets are weekly rates, so the bar stays meaningful no matter which time scope is selected
+- **Role badge & attainment bar** — When a user has an assigned role (see `roles`/`userRoles` in [Configuration](#configuration)), their tile shows the role name plus a thin bar with a dot indicating how their current-scope activity compares to that role's satisfactory/goal targets — far left is below satisfactory (❗), the middle is right at satisfactory (🫥), and the far right is at or beyond goal on every applicable metric (🤩). The blended overall verdict allows a small tolerance below satisfactory (down to -0.25 on the blended scale) before flipping to Failing, so a user who's strong on most metrics with only a minor shortfall elsewhere still reads as Meets Expectations overall. Targets are weekly rates, so the bar stays meaningful no matter which time scope is selected. The weekly rate is normalized to the user's actual active window: it never starts before their first tracked activity (so new hires viewed over a wide scope like YTD aren't penalized for weeks before they joined), and it stops at an explicit `userEndDates` entry when one is configured (so departed contributors aren't penalized for weeks after they left) — hover the bar to see the exact window it was evaluated over
 - **User profiles** — Click any user card to see:
+  - Role attainment breakdown (when the user has an assigned role) — a plain-language sentiment summary of where they're excelling/on track/falling behind, an overall attainment bar, and a per-metric bar (Pull Requests, Reviews, Issue Resolutions, Score) each with its own weekly rate, ❗/🫥/🤩 indicator, and hover tooltip showing the satisfactory/goal targets and evaluation window used
   - Full history with per-metric line charts
   - Paginated per-period contribution breakdown table (100 per page, newest first)
   - Repository breakdown doughnut charts (PRs, reviews, commits by repo)

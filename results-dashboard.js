@@ -181,10 +181,12 @@ dashboardData.hasIssueResolutions = Object.values(dashboardData.users).some(u =>
 const hasIssueResolutions = dashboardData.hasIssueResolutions;
 
 // ─── Team roles (optional) ──────────────────────────────────────────────────
-// Reads "roles" (per-role weekly satisfactory/goal targets) and "userRoles"
-// (canonical name -> role name) from config.json. Both are entirely optional —
-// a missing/unparseable config, or missing keys, simply disables the
-// role badge / attainment bar and the methodology role tables.
+// Reads "roles" (per-role weekly satisfactory/goal targets), "userRoles"
+// (canonical name -> role name), and "userEndDates" (canonical name -> the
+// last day they should be counted, for departed/offboarded contributors) from
+// config.json. All are entirely optional — a missing/unparseable config, or
+// missing keys, simply disables the role badge / attainment bar and the
+// methodology role tables, with no trailing-window clamp applied.
 const configFilePath = path.join(__dirname, 'config.json');
 function loadRoleConfig() {
   try {
@@ -192,12 +194,17 @@ function loadRoleConfig() {
     return {
       roles: cfg.roles || {},
       userRoles: cfg.userRoles || {},
+      userEndDates: cfg.userEndDates || {},
     };
   } catch {
-    return { roles: {}, userRoles: {} };
+    return { roles: {}, userRoles: {}, userEndDates: {} };
   }
 }
-const { roles: ROLES, userRoles: USER_ROLES } = loadRoleConfig();
+const {
+  roles: ROLES,
+  userRoles: USER_ROLES,
+  userEndDates: USER_END_DATES,
+} = loadRoleConfig();
 
 // ─── Build HTML ─────────────────────────────────────────────────────────────
 
@@ -774,6 +781,72 @@ header {
   font-size: 13px;
   line-height: 1;
   flex-shrink: 0;
+}
+
+/* ─── Profile Modal: Role Attainment Breakdown ──────────────────────────── */
+.profile-role-panel {
+  margin: 12px 0 18px;
+  padding: 12px 16px;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.profile-role-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.profile-role-overall-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.profile-sentiment {
+  font-size: 12px;
+  color: var(--fg-muted);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.profile-sentiment strong {
+  color: var(--fg-bright);
+}
+
+.profile-role-overall-row {
+  margin-bottom: 12px;
+}
+
+.profile-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.profile-metric-row:last-child { margin-bottom: 0; }
+
+.profile-metric-label {
+  width: 150px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.profile-metric-row .role-bar-track { flex: 1; height: 6px; }
+
+.profile-metric-value {
+  width: 70px;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 11px;
+  color: var(--fg-dim);
+  white-space: nowrap;
 }
 
 .popularity-badge {
@@ -1886,23 +1959,28 @@ ${
       <h2 class="meth-heading">Team Roles &amp; Targets</h2>
       <p class="meth-text">
         Each configured role defines a <strong>satisfactory</strong> and <strong>goal</strong>
-        weekly rate for the four metrics tracked below. A user's assigned role is shown on their
+        weekly rate for the three metrics tracked below. A user's assigned role is shown on their
         tile in the Users tab, alongside a bar indicating how their current activity compares —
         left of center is below satisfactory (❗), centered through the right edge is satisfactory
         through goal (🫥), and past the right edge means every applicable metric is at or beyond
-        goal (🤩).
+        goal (🤩). The overall verdict allows a small tolerance below satisfactory (down to -0.25
+        on the blended scale) before it's marked Failing, so someone who's strong on most metrics
+        with only a minor shortfall elsewhere still reads as Meets Expectations overall — the
+        per-metric breakdown in each user's profile still flags that specific shortfall.
       </p>
 ${Object.entries(ROLES)
   .map(([roleName, roleDef]) => {
     const metricRows = [
-      ['Score', 'score'],
       ['Pull Requests', 'pullRequests'],
       ['Reviews', 'reviews'],
-      ...(hasIssueResolutions ? [['Issue Resolutions', 'issueResolutions']] : []),
+      ...(hasIssueResolutions
+        ? [['Issue Resolutions', 'issueResolutions']]
+        : []),
     ]
       .map(([label, key]) => {
         const t = roleDef[key];
-        const satisfactory = t && typeof t.satisfactory === 'number' ? t.satisfactory : '—';
+        const satisfactory =
+          t && typeof t.satisfactory === 'number' ? t.satisfactory : '—';
         const goal = t && typeof t.goal === 'number' ? t.goal : '—';
         return `<tr><td>${label}</td><td class="meth-mono">${satisfactory}</td><td class="meth-mono">${goal}</td></tr>`;
       })
@@ -2078,6 +2156,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
   const SCORE_WEIGHTS = ${JSON.stringify(WEIGHTS)};
   const ROLES = ${JSON.stringify(ROLES)};
   const USER_ROLES = ${JSON.stringify(USER_ROLES)};
+  const USER_END_DATES = ${JSON.stringify(USER_END_DATES)};
 
   function repoScore(rb) {
     const prs = rb.pullRequests || 0;
@@ -2196,8 +2275,57 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
 
   const ROLE_ATTAINMENT_METRICS = ['score', 'pullRequests', 'reviews', 'issueResolutions'];
 
-  function getWeeksInScope(periods) {
-    if (!periods || periods.length === 0) return 1;
+  // DATA.users keys are lowercase canonical names (e.g. "nick pasto"), but
+  // USER_ROLES keys come straight from config.json in their original
+  // capitalization (e.g. "Nick Pasto") to match the "aliases" keys there.
+  // Build a lowercase-keyed lookup once so the two line up regardless of case.
+  const USER_ROLES_LC = {};
+  Object.keys(USER_ROLES).forEach(name => {
+    USER_ROLES_LC[name.toLowerCase()] = USER_ROLES[name];
+  });
+
+  // Explicit, opt-in end dates for departed/offboarded contributors (canonical
+  // name -> "YYYY-MM-DD"). Deliberately NOT inferred from trailing silence —
+  // a quiet stretch near the end of a scope is ambiguous (left vs. still here
+  // but coasting), so only users named here get their evaluation window
+  // clamped early; everyone else is judged through the scope's actual end.
+  const USER_END_DATES_LC = {};
+  Object.keys(USER_END_DATES).forEach(name => {
+    USER_END_DATES_LC[name.toLowerCase()] = USER_END_DATES[name];
+  });
+
+  // Earliest period (across ALL history, not just the current scope) where a
+  // user shows any tracked activity — their "first touch point". Used to keep
+  // the weekly-rate normalization below fair for users who joined partway
+  // through the currently selected scope (e.g. a new hire viewed over YTD
+  // shouldn't have their totals divided by months they weren't here for).
+  const _firstActivityCache = new Map();
+  function getUserFirstActivityDate(userName) {
+    if (_firstActivityCache.has(userName)) return _firstActivityCache.get(userName);
+    const ud = DATA.users[userName];
+    let result = null;
+    if (ud) {
+      for (const p of ALL_PERIODS) { // ALL_PERIODS is sorted ascending by startDate
+        const d = ud.data[p.id];
+        if (d && (
+          (d.score || 0) > 0 || (d.commits || 0) > 0 || (d.pullRequests || 0) > 0 ||
+          (d.predictedPullRequests || 0) > 0 || (d.reviews || 0) > 0 ||
+          (d.issueResolutions || 0) > 0 || (d.loc || 0) > 0 || (d.filesTouched || 0) > 0
+        )) {
+          result = parseDate(p.startDate);
+          break;
+        }
+      }
+    }
+    _firstActivityCache.set(userName, result);
+    return result;
+  }
+
+  // Returns { weeks, effectiveEnd } — effectiveEnd is only set (non-null) when
+  // the trailing window was clamped by an explicit userEndDates entry, so
+  // callers can surface it for tooltip transparency.
+  function getWeeksInScope(userName, periods) {
+    if (!periods || periods.length === 0) return { weeks: 1, effectiveEnd: null };
     let minStart = null;
     let maxEnd = null;
     periods.forEach(pid => {
@@ -2208,18 +2336,66 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       if (minStart === null || s < minStart) minStart = s;
       if (maxEnd === null || e > maxEnd) maxEnd = e;
     });
-    if (minStart === null || maxEnd === null) return 1;
-    const days = Math.max(daysBetween(minStart, maxEnd), 1);
-    return Math.max(days / 7, 1);
+    if (minStart === null || maxEnd === null) return { weeks: 1, effectiveEnd: null };
+
+    // Clamp the effective start forward to the user's first touch point when
+    // it falls later than the scope start, so someone who joined partway
+    // through the window isn't penalized for weeks they weren't active.
+    const firstActivity = getUserFirstActivityDate(userName);
+    const effectiveStart = firstActivity && firstActivity > minStart ? firstActivity : minStart;
+
+    // Clamp the effective end backward to an explicit, opt-in departure date
+    // when one is configured and it falls before the scope end — so time
+    // after someone left doesn't keep silently deflating their rate.
+    let effectiveEnd = maxEnd;
+    let clampedEnd = null;
+    const endDateStr = USER_END_DATES_LC[String(userName).toLowerCase()];
+    if (endDateStr) {
+      const parsedEnd = parseDate(endDateStr);
+      if (!isNaN(parsedEnd) && parsedEnd < maxEnd) {
+        effectiveEnd = parsedEnd < effectiveStart ? effectiveStart : parsedEnd;
+        clampedEnd = endDateStr;
+      }
+    }
+
+    const days = Math.max(daysBetween(effectiveStart, effectiveEnd), 1);
+    return { weeks: Math.max(days / 7, 1), effectiveEnd: clampedEnd };
+  }
+
+  // Human-readable labels for the role-attainment metric keys — used both
+  // for the profile modal's per-metric breakdown and its sentiment summary.
+  const ROLE_METRIC_LABELS = { score: 'Score', pullRequests: 'Pull Requests', reviews: 'Reviews', issueResolutions: 'Issue Resolutions' };
+
+  // Shared thresholds so the tile bar, profile overall bar, and profile
+  // per-metric bars all agree on what counts as Failing/Meets/Exceeding.
+  // Per-metric categorization stays strict at 0 (a specific metric is either
+  // at/above its satisfactory rate or it isn't). The blended overall score
+  // gets a small tolerance band below 0 (see OVERALL_MEETS_TOLERANCE) so a
+  // user who's strong on some metrics and only slightly short on others
+  // isn't tipped into "Failing" overall by minor shortfalls averaging out.
+  function categorizeAttainment(position) {
+    if (position < 0) return { category: 'Failing', emoji: '❗' };
+    if (position < 1) return { category: 'Meets Expectations', emoji: '🫥' };
+    return { category: 'Exceeding', emoji: '🤩' };
+  }
+
+  // How far below 0 the blended overall score can fall and still count as
+  // "Meets Expectations" rather than "Failing" — e.g. mostly-strong metrics
+  // with one modest shortfall shouldn't tip the overall verdict to Failing.
+  const OVERALL_MEETS_TOLERANCE = -0.25;
+  function categorizeOverallAttainment(overall) {
+    if (overall < OVERALL_MEETS_TOLERANCE) return { category: 'Failing', emoji: '❗' };
+    if (overall < 1) return { category: 'Meets Expectations', emoji: '🫥' };
+    return { category: 'Exceeding', emoji: '🤩' };
   }
 
   function getRoleAttainment(userName, totals, periods) {
-    const roleName = USER_ROLES[userName];
+    const roleName = USER_ROLES_LC[String(userName).toLowerCase()];
     if (!roleName) return null;
     const roleDef = ROLES[roleName];
-    if (!roleDef) return { role: roleName, overall: null, barPercent: null, category: null, emoji: null };
+    if (!roleDef) return { role: roleName, overall: null, barPercent: null, category: null, emoji: null, evaluatedThrough: null, metrics: {} };
 
-    const weeks = getWeeksInScope(periods);
+    const { weeks, effectiveEnd } = getWeeksInScope(userName, periods);
     const values = {
       score: totals.score,
       pullRequests: totals.effectivePRs,
@@ -2228,6 +2404,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     };
 
     const positions = [];
+    const metrics = {};
     ROLE_ATTAINMENT_METRICS.forEach(metric => {
       if (metric === 'issueResolutions' && !HAS_ISSUE_RESOLUTIONS) return;
       const target = roleDef[metric];
@@ -2235,20 +2412,44 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       const { satisfactory, goal } = target;
       if (goal === satisfactory) return; // avoid divide-by-zero on a degenerate config
       const weeklyValue = (values[metric] || 0) / weeks;
-      positions.push((weeklyValue - satisfactory) / (goal - satisfactory));
+      const position = (weeklyValue - satisfactory) / (goal - satisfactory);
+      positions.push(position);
+      const cat = categorizeAttainment(position);
+      metrics[metric] = {
+        position,
+        barPercent: 50 + Math.max(-1, Math.min(1, position)) * 50,
+        weeklyValue, satisfactory, goal,
+        category: cat.category, emoji: cat.emoji,
+      };
     });
 
-    if (positions.length === 0) return { role: roleName, overall: null, barPercent: null, category: null, emoji: null };
+    if (positions.length === 0) return { role: roleName, overall: null, barPercent: null, category: null, emoji: null, evaluatedThrough: null, metrics };
 
     const overall = positions.reduce((a, b) => a + b, 0) / positions.length;
     const barPercent = 50 + Math.max(-1, Math.min(1, overall)) * 50;
+    const overallCat = categorizeOverallAttainment(overall);
 
-    let category, emoji;
-    if (overall < 0) { category = 'Failing'; emoji = '❗'; }
-    else if (overall < 1) { category = 'Meets Expectations'; emoji = '🫥'; }
-    else { category = 'Exceeding'; emoji = '🤩'; }
+    return { role: roleName, overall, barPercent, category: overallCat.category, emoji: overallCat.emoji, evaluatedThrough: effectiveEnd, metrics };
+  }
 
-    return { role: roleName, overall, barPercent, category, emoji };
+  // Builds a short, plain-language summary sentence (e.g. "🤩 Excelling in
+  // Pull Requests. 🫥 On track with Reviews. ❗ Falling behind in Score.")
+  // from a getRoleAttainment() result's per-metric breakdown.
+  function buildSentimentSummary(attainment) {
+    if (!attainment || !attainment.role || attainment.overall === null) return '';
+    const exceeding = [], meeting = [], failing = [];
+    Object.keys(attainment.metrics).forEach(key => {
+      const m = attainment.metrics[key];
+      const label = ROLE_METRIC_LABELS[key] || key;
+      if (m.category === 'Exceeding') exceeding.push(label);
+      else if (m.category === 'Failing') failing.push(label);
+      else meeting.push(label);
+    });
+    const parts = [];
+    if (exceeding.length) parts.push('🤩 <strong>Excelling</strong> in ' + exceeding.join(', ') + '.');
+    if (meeting.length) parts.push('🫥 <strong>On track</strong> with ' + meeting.join(', ') + '.');
+    if (failing.length) parts.push('❗ <strong>Falling behind</strong> in ' + failing.join(', ') + '.');
+    return parts.join(' ');
   }
 
   function getTopUsers(metricKey, periods, limit) {
@@ -2608,12 +2809,15 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       let roleBlock = '';
       if (attainment && attainment.role) {
         const roleLabel = escapeHtml(attainment.role);
+        const tooltip = attainment.category
+          ? attainment.category + (attainment.evaluatedThrough ? ' (evaluated through ' + attainment.evaluatedThrough + ')' : '')
+          : '';
         const bar = attainment.barPercent === null ? '' :
           '<div class="role-bar-row">'
-            + '<div class="role-bar-track" title="' + escapeHtml(attainment.category) + '">'
+            + '<div class="role-bar-track" title="' + escapeHtml(tooltip) + '">'
               + '<div class="role-bar-dot" style="left:' + attainment.barPercent.toFixed(1) + '%"></div>'
             + '</div>'
-            + '<span class="role-bar-emoji" title="' + escapeHtml(attainment.category) + '">' + attainment.emoji + '</span>'
+            + '<span class="role-bar-emoji" title="' + escapeHtml(tooltip) + '">' + attainment.emoji + '</span>'
           + '</div>';
         roleBlock = '<div class="user-role-block">'
           + '<span class="user-role-badge">' + roleLabel + '</span>'
@@ -3004,6 +3208,51 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     let html = '<button class="profile-close" onclick="closeProfile()">✕ CLOSE</button>';
     html += '<div class="profile-name">' + displayName + '</div>';
     html += '<div class="profile-subtitle">Rank #' + rank + ' of ' + allUsers.filter(u => u.score > 0).length + ' active contributors &mdash; ' + rangeLabel + '</div>';
+
+    // ─── Role Attainment Breakdown (optional — only for users with an
+    // assigned role that resolves to a defined config.json role) ──────────
+    const attainment = getRoleAttainment(userName, totals, periods);
+    if (attainment && attainment.role) {
+      const overallTooltip = attainment.category
+        ? attainment.category + (attainment.evaluatedThrough ? ' (evaluated through ' + attainment.evaluatedThrough + ')' : '')
+        : '';
+      const sentiment = buildSentimentSummary(attainment);
+
+      html += '<div class="profile-role-panel">';
+      html += '<div class="profile-role-header">'
+        + '<span class="user-role-badge">' + escapeHtml(attainment.role) + '</span>'
+        + (attainment.category ? '<span class="profile-role-overall-label">Overall: ' + escapeHtml(attainment.category) + ' ' + attainment.emoji + '</span>' : '')
+      + '</div>';
+
+      if (sentiment) html += '<div class="profile-sentiment">' + sentiment + '</div>';
+
+      if (attainment.barPercent !== null) {
+        html += '<div class="role-bar-row profile-role-overall-row">'
+          + '<div class="role-bar-track" title="' + escapeHtml(overallTooltip) + '">'
+            + '<div class="role-bar-dot" style="left:' + attainment.barPercent.toFixed(1) + '%"></div>'
+          + '</div>'
+          + '<span class="role-bar-emoji" title="' + escapeHtml(overallTooltip) + '">' + attainment.emoji + '</span>'
+        + '</div>';
+      }
+
+      ROLE_ATTAINMENT_METRICS.forEach(key => {
+        const md = attainment.metrics[key];
+        if (!md) return;
+        const label = ROLE_METRIC_LABELS[key] || key;
+        const metricTooltip = md.category + ' \u2014 ' + md.weeklyValue.toFixed(1) + '/wk (satisfactory ' + md.satisfactory + ', goal ' + md.goal + ')'
+          + (attainment.evaluatedThrough ? ' (evaluated through ' + attainment.evaluatedThrough + ')' : '');
+        html += '<div class="profile-metric-row">'
+          + '<span class="profile-metric-label">' + escapeHtml(label) + '</span>'
+          + '<div class="role-bar-track" title="' + escapeHtml(metricTooltip) + '">'
+            + '<div class="role-bar-dot" style="left:' + md.barPercent.toFixed(1) + '%"></div>'
+          + '</div>'
+          + '<span class="role-bar-emoji" title="' + escapeHtml(metricTooltip) + '">' + md.emoji + '</span>'
+          + '<span class="profile-metric-value">' + md.weeklyValue.toFixed(1) + '/wk</span>'
+        + '</div>';
+      });
+
+      html += '</div>';
+    }
 
     const outliers = computeOutliers(periods);
     const userOutliers = outliers[userName] || {};

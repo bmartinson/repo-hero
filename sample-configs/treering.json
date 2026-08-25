@@ -1,7 +1,7 @@
 {
   "directory": "/Users/bmartinson/Development",
-  "startDate": "2020-01-01",
-  "endDate": "2024-01-01",
+  "startDate": "2014-01-01",
+  "endDate": "2026-08-31",
   "skipCache": false,
   "projects": [
     "@TreeRing/dev-ops",
@@ -12,6 +12,7 @@
     "@TreeRing/TRCruise",
     "@TreeRing/ng-treering",
     "@TreeRing/cambium",
+    "@TreeRing/render",
     "@TreeRing/ngtr-sales-portal",
     "@TreeRing/console",
     "@TreeRing/marketing",
@@ -25,6 +26,7 @@
     "@TreeRing/knowledge-base",
     "@TreeRing/ai-generative-content",
     "@TreeRing/ai-book-builder",
+    "@TreeRing/ai",
     "@TreeRing/business-intelligence",
     "@TreeRing/itinerary-scraper",
     "@TreeRing/flutter_travel",
@@ -33,7 +35,14 @@
     "@bmartinson/ngx-x-browser-svg-mask",
     "@bmartinson/ngx-advanced-img",
     "@bmartinson/ngx-draggable-dom",
-    "@bmartinson/repo-hero"
+    "@bmartinson/repo-hero",
+    "@TreeRing/ribosome",
+    "@TreeRing/scion",
+    "@TreeRing/letterwood",
+    "@TreeRing/tr-mcp-server",
+    "@TreeRing/security",
+    "@TreeRing/flutter_travel",
+    "@TreeRing/flutter_treering"
   ],
   "aliases": {
     "DevOps Deployment": [
@@ -53,6 +62,7 @@
       "reering-deploy",
       "treering devops",
       "treering-devops",
+      "Aws",
       ""
     ],
     "Aaron Greco": ["grecstar", "aaron", "AG"],
@@ -87,7 +97,7 @@
     "Jack Mullis": ["jackmullis"],
     "Jay Ng": ["ngchwanlii"],
     "Elle Louie": ["ElleLouie"],
-    "Philip Basnage": ["pbasnage", "pbasnagetr", "philiptreering"],
+    "Philip Basnage": ["pbasnage", "pbasnagetr", "philiptreering", "Philip"],
     "Monika Israt": ["imonika", "monika israt"],
     "Kyle Burt": ["kyleburt11495"],
     "Jakub Barzdo": ["jakubbarzdo", "jakub barzdo"],
@@ -105,7 +115,12 @@
     "Josh Balda": ["jab-cstg"],
     "Juan Ramirez": ["jar-cstg", "juan", "jr"],
     "Wil Peoples": ["jwp-cstg", "wil.peoples@cleanslatetg.com"],
-    "Nathan Liston": ["ncl-cstg"]
+    "Nathan Liston": ["ncl-cstg"],
+    "Mike Deelo": ["mkd-cstg"],
+    "Michał Miroslaw": ["mich-mir-sn", "mmiroslaw", "Michalmiroslaw"],
+    "Tom Rozdzynski": ["tom rozdzynski", "tr-spdnet"],
+    "Charles Onwuka": ["charles-treering"],
+    "Matthew Bochner": ["mbochner1"]
   },
   "ignoreUsers": [
     "DevOps Deployment",
@@ -115,50 +130,137 @@
     "Monika Israt",
     "Michael Kim",
     "Laurel McNees",
-    "AI Bots"
+    "AI Bots",
+    "Colette Harris",
+    "Frances Nefsky",
+    "Abby Oxendine",
+    "Allison Vecchio",
+    "Justin Warren",
+    "Arun Kalra",
+    "Megan South",
+    "Liz Hwang",
+    "Kelley Austin",
+    "Melizza Tant"
   ],
   "roles": {
     "Software Engineer": {
-      "score": { "satisfactory": 20, "goal": 35 },
-      "pullRequests": { "satisfactory": 1, "goal": 2 },
-      "reviews": { "satisfactory": 1, "goal": 3 },
-      "issueResolutions": { "satisfactory": 0.5, "goal": 1 }
+      "pullRequests": { "satisfactory": 5, "goal": 7 },
+      "reviews": { "satisfactory": 8, "goal": 10 },
+      "issueResolutions": { "satisfactory": 0, "goal": 2 }
     },
     "Senior Software Engineer": {
-      "score": { "satisfactory": 40, "goal": 60 },
+      "pullRequests": { "satisfactory": 5, "goal": 6 },
+      "reviews": { "satisfactory": 12, "goal": 15 },
+      "issueResolutions": { "satisfactory": 0, "goal": 1 }
+    },
+    "Team Lead": {
+      "pullRequests": { "satisfactory": 5, "goal": 6 },
+      "reviews": { "satisfactory": 12, "goal": 15 },
+      "issueResolutions": { "satisfactory": 0, "goal": 0 }
+    },
+    "DevOps Engineer": {
+      "pullRequests": { "satisfactory": 5, "goal": 7 },
+      "reviews": { "satisfactory": 5, "goal": 5 },
+      "issueResolutions": { "satisfactory": 0, "goal": 0 }
+    },
+    "Support Engineer": {
+      "pullRequests": { "satisfactory": 3, "goal": 3 },
+      "reviews": { "satisfactory": 3, "goal": 5 },
+      "issueResolutions": { "satisfactory": 12, "goal": 15 }
+    },
+    "BI Analyst": {
+      "pullRequests": { "satisfactory": 2, "goal": 5 },
+      "reviews": { "satisfactory": 0, "goal": 1 },
+      "issueResolutions": { "satisfactory": 0, "goal": 0 }
+    },
+    "AI Engineer": {
       "pullRequests": { "satisfactory": 2, "goal": 3 },
       "reviews": { "satisfactory": 3, "goal": 5 },
-      "issueResolutions": { "satisfactory": 1, "goal": 2 }
+      "issueResolutions": { "satisfactory": 0, "goal": 0 }
+    },
+    "Senior Data Scientist": {
+      "pullRequests": { "satisfactory": 0, "goal": 1 },
+      "reviews": { "satisfactory": 3, "goal": 5 },
+      "issueResolutions": { "satisfactory": 0, "goal": 0 }
+    },
+    "Salesforce Architect": {
+      "pullRequests": { "satisfactory": 0, "goal": 3 },
+      "reviews": { "satisfactory": 3, "goal": 5 },
+      "issueResolutions": { "satisfactory": 0, "goal": 0 }
+    },
+    "VP of Engineering": {
+      "pullRequests": { "satisfactory": 0, "goal": 2 },
+      "reviews": { "satisfactory": 3, "goal": 5 },
+      "issueResolutions": { "satisfactory": 0, "goal": 0 }
     }
   },
   "userRoles": {
-    "Brian Martinson": "Senior Software Engineer"
+    "Brian Martinson": "VP of Engineering",
+    "Nick Pasto": "Team Lead",
+    "Marissa Hing": "Team Lead",
+    "Dumka": "Support Engineer",
+    "Benji Wolfenberger": "Software Engineer",
+    "Kyle Burt": "Software Engineer",
+    "Elle Louie": "Software Engineer",
+    "Jack Mullis": "Senior Software Engineer",
+    "Kasper Kuo": "Senior Software Engineer",
+    "Juan Ramirez": "AI Engineer",
+    "Josh Blada": "AI Engineer",
+    "Wil Peoples": "AI Engineer",
+    "Nathan Liston": "Senior Data Scientist",
+    "Jakub Barzdo": "Senior Software Engineer",
+    "Brandon Long": "Senior Software Engineer",
+    "Michał Miroslaw": "Senior Software Engineer",
+    "Tom Rozdzynski": "DevOps Engineer",
+    "William Chidyausiku": "VP of Engineering",
+    "Max Whitaker": "Support Engineer",
+    "John Moskwa": "Senior Software Engineer",
+    "Philip Basnage": "Senior Software Engineer",
+    "Arda Ungun": "Software Engineer",
+    "Daniel Steffee": "Support Engineer",
+    "Mike Mitchell": "Software Engineer",
+    "Jared Danilson": "Software Engineer",
+    "Win Min": "Senior Software Engineer",
+    "Mike Deelo": "Senior Software Engineer",
+    "Jay Ng": "Software Engineer",
+    "Charles Onwuka": "Salesforce Architect",
+    "Jason Rostro": "Senior Software Engineer",
+    "Omer Naman": "Senior Software Engineer",
+    "Matthew Bochner": "BI Analyst",
+    "Larry Ackner": "Software Engineer",
+    "Jared Corso": "Software Engineer",
+    "Nick Wiesjahn": "Software Engineer",
+    "Nathan Orttung": "Software Engineer"
   },
   "tokens": {
-    "github": "ghp_XXXXXX",
+    "github": "XXXXXXXXX",
     "smtp": {
-      "user": "reports@treering.com",
-      "pass": "XXXXXXXXXXXXXXXX"
+      "user": "no-reply@brianmartinson.com",
+      "pass": "ATqE5qXXWngFMZ@1947"
     },
     "jira": {
-      "email": "you@treering.com",
-      "apiToken": "ATATT_XXXXXX"
-    }
-  },
-  "email": {
-    "to": ["reports@treering.com"],
-    "from": "Repo Hero <reports@treering.com>",
-    "subject": "Repo Hero Dashboard — {range}",
-    "compress": true,
-    "smtp": {
-      "host": "smtp.gmail.com",
-      "port": 587
+      "email": "bmartinson@treering.com",
+      "apiToken": "XXXXXXXXXX"
     }
   },
   "jira": {
     "baseUrl": "https://treering.atlassian.net",
-    "projects": ["TR", "CNSL"],
+    "projects": ["SI", "PJ"],
+    "completedJql": null,
     "excludeIssueTypes": ["Epic"]
+  },
+  "email": {
+    "to": ["bmartinson@treering.com"],
+    "from": "Repo Hero <no-reply@brianmartinson.com>",
+    "subject": "Repo Hero Dashboard — {range}",
+    "compress": false,
+    "maxAttachmentMB": 20,
+    "enabled": true,
+    "smtp": {
+      "host": "smtp.ionos.com",
+      "port": 587,
+      "secure": false
+    }
   },
   "commitsPerPullRequest": 12.5
 }

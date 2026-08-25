@@ -1055,6 +1055,8 @@ header {
   position: relative;
   margin-bottom: 40px;
   flex-shrink: 0;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .profile-close {
@@ -1101,9 +1103,10 @@ header {
 
 .profile-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
   gap: 12px;
   margin-bottom: 28px;
+  min-width: 0;
 }
 
 .profile-stat {
@@ -1133,8 +1136,11 @@ header {
 
 .profile-charts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  /* min() keeps the track from forcing a 380px floor wider than the panel on
+     narrow screens, which pushed the charts outside the modal on mobile. */
+  grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
   gap: 16px;
+  min-width: 0;
 }
 
 .profile-chart-box {
@@ -1142,6 +1148,8 @@ header {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .profile-chart-box .pchart-title {
@@ -1197,6 +1205,9 @@ header {
 
 .breakdown-table-wrap.open {
   max-height: none;
+  /* The panel clips horizontal overflow, so let the wide nowrap table scroll
+     on its own rather than being cut off on narrow screens. */
+  overflow-x: auto;
 }
 
 .breakdown-table {
@@ -1291,7 +1302,10 @@ header {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px;
+  min-width: 0;
 }
+
+.repo-pie-box canvas { max-width: 100%; }
 
 .repo-pie-box.repo-pie-score {
   max-width: 380px;
@@ -1601,6 +1615,34 @@ html.light-mode .theme-toggle .icon-moon { display: none; }
   .nav-btn { padding: 10px 12px; font-size: 11px; letter-spacing: 1px; }
 }
 
+/* Mobile: give the profile modal more usable width and stack the role
+   report-card rows so every bar renders at the same (full) width instead of
+   being squeezed to whatever the fixed-width label leaves behind. */
+@media (max-width: 640px) {
+  .overlay.visible { padding: 16px 10px; }
+  .profile-panel { padding: 20px 16px; }
+  .profile-close { top: 10px; right: 12px; }
+  .profile-name { font-size: 22px; padding-right: 90px; }
+
+  .profile-role-panel { padding: 12px; }
+
+  .profile-metric-row {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+  }
+
+  /* Full-width label on its own line above the bar. */
+  .profile-metric-label {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .profile-metric-value {
+    width: auto;
+    min-width: 56px;
+  }
+}
+
 /* ─── Users Sort Bar ─────────────────────────────────────────────────────── */
 
 .users-sort-bar {
@@ -1623,6 +1665,7 @@ html.light-mode .theme-toggle .icon-moon { display: none; }
   cursor: pointer;
   letter-spacing: 0.5px;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 
 .sort-btn:hover { color: var(--fg); border-color: var(--fg-dim); }
@@ -2022,10 +2065,18 @@ ${Object.entries(ROLES)
     // Skip roles where every tracked metric is a degenerate 0/0 target —
     // these provide no meaningful satisfactory/goal information and would
     // just render an all-zero table.
-    const keys = ['pullRequests', 'reviews', ...(hasIssueResolutions ? ['issueResolutions'] : [])];
+    const keys = [
+      'pullRequests',
+      'reviews',
+      ...(hasIssueResolutions ? ['issueResolutions'] : []),
+    ];
     return keys.some(key => {
       const t = roleDef[key];
-      return t && ((typeof t.satisfactory === 'number' && t.satisfactory !== 0) || (typeof t.goal === 'number' && t.goal !== 0));
+      return (
+        t &&
+        ((typeof t.satisfactory === 'number' && t.satisfactory !== 0) ||
+          (typeof t.goal === 'number' && t.goal !== 0))
+      );
     });
   })
   .map(([roleName, roleDef]) => {

@@ -1085,7 +1085,18 @@ header {
 .profile-subtitle {
   color: var(--fg-dim);
   font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.profile-touchpoints {
+  color: var(--fg-dim);
+  font-size: 12px;
   margin-bottom: 24px;
+}
+
+.profile-touchpoints strong {
+  color: var(--fg-muted);
+  font-weight: 600;
 }
 
 .profile-stats {
@@ -2321,6 +2332,38 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     return result;
   }
 
+  // Mirror of getUserFirstActivityDate() for the *last* tracked activity
+  // (across ALL history, not just the current scope) — the end date of the
+  // most recent period where the user shows any activity. Used to show
+  // "first touch point" / "last touch point" dates in the profile modal.
+  const _lastActivityCache = new Map();
+  function getUserLastActivityDate(userName) {
+    if (_lastActivityCache.has(userName)) return _lastActivityCache.get(userName);
+    const ud = DATA.users[userName];
+    let result = null;
+    if (ud) {
+      for (let i = ALL_PERIODS.length - 1; i >= 0; i--) { // ALL_PERIODS is sorted ascending by startDate
+        const p = ALL_PERIODS[i];
+        const d = ud.data[p.id];
+        if (d && (
+          (d.score || 0) > 0 || (d.commits || 0) > 0 || (d.pullRequests || 0) > 0 ||
+          (d.predictedPullRequests || 0) > 0 || (d.reviews || 0) > 0 ||
+          (d.issueResolutions || 0) > 0 || (d.loc || 0) > 0 || (d.filesTouched || 0) > 0
+        )) {
+          result = parseDate(p.endDate);
+          break;
+        }
+      }
+    }
+    _lastActivityCache.set(userName, result);
+    return result;
+  }
+
+  function toISODateString(d) {
+    if (!d || isNaN(d)) return null;
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   // Returns { weeks, effectiveEnd } — effectiveEnd is only set (non-null) when
   // the trailing window was clamped by an explicit userEndDates entry, so
   // callers can surface it for tooltip transparency.
@@ -3205,9 +3248,19 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     const lastPeriod = ALL_PERIODS.find(p => p.id === periods[periods.length - 1]);
     const rangeLabel = (firstPeriod ? firstPeriod.startDate : '') + ' to ' + (lastPeriod ? lastPeriod.endDate : '');
 
+    // First/last tracked activity across ALL history (not just the current
+    // scope) — the same "touch point" dates used to normalize the weekly
+    // attainment rate, surfaced here for transparency.
+    const firstTouch = toISODateString(getUserFirstActivityDate(userName));
+    const lastTouch = toISODateString(getUserLastActivityDate(userName));
+
     let html = '<button class="profile-close" onclick="closeProfile()">✕ CLOSE</button>';
     html += '<div class="profile-name">' + displayName + '</div>';
     html += '<div class="profile-subtitle">Rank #' + rank + ' of ' + allUsers.filter(u => u.score > 0).length + ' active contributors &mdash; ' + rangeLabel + '</div>';
+    if (firstTouch || lastTouch) {
+      html += '<div class="profile-touchpoints">First activity: <strong>' + (firstTouch || '—') + '</strong>'
+        + ' &nbsp;&middot;&nbsp; Last activity: <strong>' + (lastTouch || '—') + '</strong></div>';
+    }
 
     // ─── Role Attainment Breakdown (optional — only for users with an
     // assigned role that resolves to a defined config.json role) ──────────

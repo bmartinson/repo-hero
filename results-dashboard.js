@@ -1980,6 +1980,16 @@ ${
         per-metric breakdown in each user's profile still flags that specific shortfall.
       </p>
 ${Object.entries(ROLES)
+  .filter(([, roleDef]) => {
+    // Skip roles where every tracked metric is a degenerate 0/0 target —
+    // these provide no meaningful satisfactory/goal information and would
+    // just render an all-zero table.
+    const keys = ['pullRequests', 'reviews', ...(hasIssueResolutions ? ['issueResolutions'] : [])];
+    return keys.some(key => {
+      const t = roleDef[key];
+      return t && ((typeof t.satisfactory === 'number' && t.satisfactory !== 0) || (typeof t.goal === 'number' && t.goal !== 0));
+    });
+  })
   .map(([roleName, roleDef]) => {
     const metricRows = [
       ['Pull Requests', 'pullRequests'],

@@ -180,6 +180,25 @@ dashboardData.hasIssueResolutions = Object.values(dashboardData.users).some(u =>
 
 const hasIssueResolutions = dashboardData.hasIssueResolutions;
 
+// ─── Team roles (optional) ──────────────────────────────────────────────────
+// Reads "roles" (per-role weekly satisfactory/goal targets) and "userRoles"
+// (canonical name -> role name) from config.json. Both are entirely optional —
+// a missing/unparseable config, or missing keys, simply disables the
+// role badge / attainment bar and the methodology role tables.
+const configFilePath = path.join(__dirname, 'config.json');
+function loadRoleConfig() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
+    return {
+      roles: cfg.roles || {},
+      userRoles: cfg.userRoles || {},
+    };
+  } catch {
+    return { roles: {}, userRoles: {} };
+  }
+}
+const { roles: ROLES, userRoles: USER_ROLES } = loadRoleConfig();
+
 // ─── Build HTML ─────────────────────────────────────────────────────────────
 
 const logoSvg = fs.existsSync(logoFile)
@@ -696,6 +715,65 @@ header {
   cursor: pointer;
   vertical-align: baseline;
   position: relative;
+}
+
+.user-role-block {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.user-role-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.role-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.role-bar-track {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--fg-error), var(--fg-warn) 50%, var(--fg-success));
+  opacity: 0.85;
+}
+
+.role-bar-dot {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--fg-bright);
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 0 0 1px var(--border);
+  transform: translate(-50%, -50%);
+}
+
+.role-bar-emoji {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .popularity-badge {
@@ -1802,6 +1880,48 @@ ${hasIssueResolutions ? `<tr><td>Issue Resolutions</td><td>Jira issues resolved 
           <tr><td>Active Contributors</td><td>Unique users with any commits, PRs, or reviews${hasIssueResolutions ? ', or issue resolutions' : ''} in the scope.</td></tr>
         </tbody>
       </table>
+${
+  Object.keys(ROLES).length > 0
+    ? `
+      <h2 class="meth-heading">Team Roles &amp; Targets</h2>
+      <p class="meth-text">
+        Each configured role defines a <strong>satisfactory</strong> and <strong>goal</strong>
+        weekly rate for the four metrics tracked below. A user's assigned role is shown on their
+        tile in the Users tab, alongside a bar indicating how their current activity compares —
+        left of center is below satisfactory (❗), centered through the right edge is satisfactory
+        through goal (🫥), and past the right edge means every applicable metric is at or beyond
+        goal (🤩).
+      </p>
+${Object.entries(ROLES)
+  .map(([roleName, roleDef]) => {
+    const metricRows = [
+      ['Score', 'score'],
+      ['Pull Requests', 'pullRequests'],
+      ['Reviews', 'reviews'],
+      ...(hasIssueResolutions ? [['Issue Resolutions', 'issueResolutions']] : []),
+    ]
+      .map(([label, key]) => {
+        const t = roleDef[key];
+        const satisfactory = t && typeof t.satisfactory === 'number' ? t.satisfactory : '—';
+        const goal = t && typeof t.goal === 'number' ? t.goal : '—';
+        return `<tr><td>${label}</td><td class="meth-mono">${satisfactory}</td><td class="meth-mono">${goal}</td></tr>`;
+      })
+      .join('\n          ');
+    return `
+      <h3 class="meth-subheading">${roleName}</h3>
+      <table class="meth-table">
+        <thead>
+          <tr><th>Metric</th><th>Satisfactory / wk</th><th>Goal / wk</th></tr>
+        </thead>
+        <tbody>
+          ${metricRows}
+        </tbody>
+      </table>`;
+  })
+  .join('\n')}
+`
+    : ''
+}
 
       <h2 class="meth-heading">⚠ Disclaimer</h2>
       <p class="meth-text" style="opacity:0.85;">
@@ -1956,6 +2076,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
   function CT() { return CHART_THEME[currentTheme]; }
 
   const SCORE_WEIGHTS = ${JSON.stringify(WEIGHTS)};
+  const ROLES = ${JSON.stringify(ROLES)};
+  const USER_ROLES = ${JSON.stringify(USER_ROLES)};
 
   function repoScore(rb) {
     const prs = rb.pullRequests || 0;
@@ -1998,6 +2120,11 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
 
   function parseDate(str) { return new Date(str + 'T00:00:00'); }
   function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
 
   function getScopedPeriods() {
     if (ALL_PERIODS.length === 0) return [];
@@ -2058,6 +2185,70 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       }
     });
     return totals;
+  }
+
+  // ─── Team Roles / Attainment ─────────────────────────────────────────────
+  // Entirely optional: only produces output when the user has an assigned
+  // role (USER_ROLES) that matches a defined role (ROLES). Thresholds in
+  // config.json are expressed as weekly rates, so scoped totals are first
+  // normalized to a weekly rate using the span of the currently selected
+  // periods before being compared.
+
+  const ROLE_ATTAINMENT_METRICS = ['score', 'pullRequests', 'reviews', 'issueResolutions'];
+
+  function getWeeksInScope(periods) {
+    if (!periods || periods.length === 0) return 1;
+    let minStart = null;
+    let maxEnd = null;
+    periods.forEach(pid => {
+      const p = ALL_PERIODS.find(x => x.id === pid);
+      if (!p) return;
+      const s = parseDate(p.startDate);
+      const e = parseDate(p.endDate);
+      if (minStart === null || s < minStart) minStart = s;
+      if (maxEnd === null || e > maxEnd) maxEnd = e;
+    });
+    if (minStart === null || maxEnd === null) return 1;
+    const days = Math.max(daysBetween(minStart, maxEnd), 1);
+    return Math.max(days / 7, 1);
+  }
+
+  function getRoleAttainment(userName, totals, periods) {
+    const roleName = USER_ROLES[userName];
+    if (!roleName) return null;
+    const roleDef = ROLES[roleName];
+    if (!roleDef) return { role: roleName, overall: null, barPercent: null, category: null, emoji: null };
+
+    const weeks = getWeeksInScope(periods);
+    const values = {
+      score: totals.score,
+      pullRequests: totals.effectivePRs,
+      reviews: totals.reviews,
+      issueResolutions: totals.issueResolutions,
+    };
+
+    const positions = [];
+    ROLE_ATTAINMENT_METRICS.forEach(metric => {
+      if (metric === 'issueResolutions' && !HAS_ISSUE_RESOLUTIONS) return;
+      const target = roleDef[metric];
+      if (!target || typeof target.satisfactory !== 'number' || typeof target.goal !== 'number') return;
+      const { satisfactory, goal } = target;
+      if (goal === satisfactory) return; // avoid divide-by-zero on a degenerate config
+      const weeklyValue = (values[metric] || 0) / weeks;
+      positions.push((weeklyValue - satisfactory) / (goal - satisfactory));
+    });
+
+    if (positions.length === 0) return { role: roleName, overall: null, barPercent: null, category: null, emoji: null };
+
+    const overall = positions.reduce((a, b) => a + b, 0) / positions.length;
+    const barPercent = 50 + Math.max(-1, Math.min(1, overall)) * 50;
+
+    let category, emoji;
+    if (overall < 0) { category = 'Failing'; emoji = '❗'; }
+    else if (overall < 1) { category = 'Meets Expectations'; emoji = '🫥'; }
+    else { category = 'Exceeding'; emoji = '🤩'; }
+
+    return { role: roleName, overall, barPercent, category, emoji };
   }
 
   function getTopUsers(metricKey, periods, limit) {
@@ -2412,6 +2603,24 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       const rankColors = CT().rank;
       const rankStyle = i < 3 ? 'background:' + rankColors[i] : CT().rankRest;
       const fire = (key) => o[key] ? '<span class="fire-badge" onclick="event.stopPropagation();showFirePopup(event,\\'' + key + '\\',+' + o[key].zScore + ')">🔥</span>' : '';
+
+      const attainment = getRoleAttainment(u.name, t, periods);
+      let roleBlock = '';
+      if (attainment && attainment.role) {
+        const roleLabel = escapeHtml(attainment.role);
+        const bar = attainment.barPercent === null ? '' :
+          '<div class="role-bar-row">'
+            + '<div class="role-bar-track" title="' + escapeHtml(attainment.category) + '">'
+              + '<div class="role-bar-dot" style="left:' + attainment.barPercent.toFixed(1) + '%"></div>'
+            + '</div>'
+            + '<span class="role-bar-emoji" title="' + escapeHtml(attainment.category) + '">' + attainment.emoji + '</span>'
+          + '</div>';
+        roleBlock = '<div class="user-role-block">'
+          + '<span class="user-role-badge">' + roleLabel + '</span>'
+          + bar
+        + '</div>';
+      }
+
       return '<div class="user-card" onclick="openProfile(\\'' + u.name.replace(/'/g, "\\\\'") + '\\')">'
         + '<div class="user-card-header">'
           + '<span class="user-card-name">' + displayName + '</span>'
@@ -2425,6 +2634,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
           + (HAS_ISSUE_RESOLUTIONS ? '<div class="user-stat"><div class="stat-value">' + formatNum(t.issueResolutions) + fire('issueResolutions') + '</div><div class="stat-label">Issue Res.</div></div>' : '')
           + '<div class="user-stat"><div class="stat-value">' + formatNum(t.loc) + fire('loc') + '</div><div class="stat-label">LOC</div></div>'
           + '<div class="user-stat"><div class="stat-value">' + formatNum(t.filesTouched) + fire('filesTouched') + '</div><div class="stat-label">Files</div></div>'
+          + roleBlock
         + '</div>'
       + '</div>';
     }).join('');

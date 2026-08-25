@@ -56,7 +56,7 @@ The dashboard opens automatically in your default browser.
 
 ## Configuration
 
-Create a `config.json` in the project root (it is gitignored). All top-level properties are required except `aliases`, `ignoreUsers`, and `commitsPerPullRequest`.
+Create a `config.json` in the project root (it is gitignored). All top-level properties are required except `aliases`, `ignoreUsers`, `commitsPerPullRequest`, `roles`, and `userRoles`.
 
 ```jsonc
 {
@@ -84,6 +84,28 @@ Create a `config.json` in the project root (it is gitignored). All top-level pro
     "DevOps", // names to exclude from results
     "dependabot[bot]",
   ],
+  "roles": {
+    // optional — omit entirely to disable role badges and the Methodology role tables
+    "Software Engineer": {
+      // each metric's targets are expressed as a per-week rate; omit a metric to exclude
+      // it from that role's attainment calculation (and from its Methodology table row)
+      "score": { "satisfactory": 20, "goal": 35 },
+      "pullRequests": { "satisfactory": 1, "goal": 2 },
+      "reviews": { "satisfactory": 1, "goal": 3 },
+      "issueResolutions": { "satisfactory": 0.5, "goal": 1 },
+    },
+    "Senior Software Engineer": {
+      "score": { "satisfactory": 40, "goal": 60 },
+      "pullRequests": { "satisfactory": 2, "goal": 3 },
+      "reviews": { "satisfactory": 3, "goal": 5 },
+      "issueResolutions": { "satisfactory": 1, "goal": 2 },
+    },
+  },
+  "userRoles": {
+    // optional — maps a canonical name (matching the "aliases" keys) to a "roles" entry
+    "Jane Smith": "Senior Software Engineer",
+    "Brian Martinson": "Software Engineer",
+  },
   "jira": {
     // optional — omit to disable Jira metrics
     "baseUrl": "https://yourorg.atlassian.net", // Jira Cloud site URL
@@ -315,6 +337,7 @@ The dashboard is a self-contained HTML file with a console-style theme inspired 
 
 - **Contributor grid** — All active users ranked by the selected Sort By metric, with outlier badges
 - **Consistent colors** — Each user keeps the same color across all chart widgets based on their overall score rank
+- **Role badge & attainment bar** — When a user has an assigned role (see `roles`/`userRoles` in [Configuration](#configuration)), their tile shows the role name plus a thin bar with a dot indicating how their current-scope activity compares to that role's satisfactory/goal targets — far left is below satisfactory (❗), the middle is right at satisfactory (🫥), and the far right is at or beyond goal on every applicable metric (🤩). Targets are weekly rates, so the bar stays meaningful no matter which time scope is selected
 - **User profiles** — Click any user card to see:
   - Full history with per-metric line charts
   - Paginated per-period contribution breakdown table (100 per page, newest first)
@@ -335,6 +358,7 @@ The dashboard is a self-contained HTML file with a console-style theme inspired 
 - **Issue resolutions** — What counts as resolved, how assignees are credited through the alias map, and why the weight sits below PRs and reviews (only shown when Jira is configured)
 - **Outlier detection** — Statistical approach and thresholds
 - **Dashboard metrics** — Reference for all displayed data points
+- **Team roles & targets** — One table per configured role listing the satisfactory/goal weekly rate for each tracked metric (only shown when `roles` is configured)
 
 ### Time Scope Filter
 

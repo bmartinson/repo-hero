@@ -117,6 +117,23 @@
     "Laurel McNees",
     "AI Bots"
   ],
+  "roles": {
+    "Software Engineer": {
+      "score": { "satisfactory": 20, "goal": 35 },
+      "pullRequests": { "satisfactory": 1, "goal": 2 },
+      "reviews": { "satisfactory": 1, "goal": 3 },
+      "issueResolutions": { "satisfactory": 0.5, "goal": 1 }
+    },
+    "Senior Software Engineer": {
+      "score": { "satisfactory": 40, "goal": 60 },
+      "pullRequests": { "satisfactory": 2, "goal": 3 },
+      "reviews": { "satisfactory": 3, "goal": 5 },
+      "issueResolutions": { "satisfactory": 1, "goal": 2 }
+    }
+  },
+  "userRoles": {
+    "Brian Martinson": "Senior Software Engineer"
+  },
   "tokens": {
     "github": "ghp_XXXXXX",
     "smtp": {

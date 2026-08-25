@@ -1323,6 +1323,10 @@ header {
   margin: 40px 0 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  scroll-margin-top: 16px;
 }
 
 .meth-heading:first-child { margin-top: 8px; }
@@ -1332,6 +1336,40 @@ header {
   font-size: 15px;
   font-weight: 500;
   margin: 28px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  scroll-margin-top: 16px;
+}
+
+.meth-anchor-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  opacity: 0.35;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.meth-heading:hover .meth-anchor-btn,
+.meth-subheading:hover .meth-anchor-btn,
+.meth-anchor-btn:focus {
+  opacity: 0.9;
+}
+
+.meth-anchor-btn.copied { opacity: 1; }
+
+@keyframes methAnchorFlash {
+  0%, 100% { background: transparent; }
+  25%, 75% { background: rgba(255, 214, 0, 0.18); }
+}
+
+.meth-anchor-flash {
+  animation: methAnchorFlash 1.6s ease-in-out;
+  border-radius: 4px;
 }
 
 .meth-text {
@@ -3613,7 +3651,88 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     return {
       tab: params.get('tab') || 'dashboard',
       profile: params.get('profile') || null,
+      section: params.get('section') || (window.location.hash ? window.location.hash.slice(1) : null),
     };
+  }
+
+  // ─── Methodology Section Permalinks ────────────────────────────────────
+  // Gives every heading in the Methodology tab a stable id (derived from its
+  // text) and a small 🔗 button that copies a shareable deep link
+  // (?tab=methodology&section=<id>#<id>) so someone can send a link that
+  // opens straight to a specific section.
+
+  function slugify(text) {
+    return String(text)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'section';
+  }
+
+  function initMethodologyAnchors() {
+    const panel = document.getElementById('tab-methodology');
+    if (!panel) return;
+    const usedSlugs = {};
+    panel.querySelectorAll('.meth-heading, .meth-subheading').forEach(heading => {
+      let slug = slugify(heading.textContent);
+      if (usedSlugs[slug]) {
+        usedSlugs[slug]++;
+        slug = slug + '-' + usedSlugs[slug];
+      } else {
+        usedSlugs[slug] = 1;
+      }
+      heading.id = slug;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'meth-anchor-btn';
+      btn.title = 'Copy link to this section';
+      btn.setAttribute('aria-label', 'Copy link to "' + heading.textContent + '"');
+      btn.innerHTML = '🔗';
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        copySectionLink(slug, btn);
+      });
+      heading.appendChild(btn);
+    });
+  }
+
+  function copySectionLink(slug, btn) {
+    const url = window.location.origin + window.location.pathname + '?tab=methodology&section=' + slug + '#' + slug;
+
+    const showCopied = () => {
+      if (!btn) return;
+      const original = btn.innerHTML;
+      btn.innerHTML = '✅';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.innerHTML = original; btn.classList.remove('copied'); }, 1500);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(showCopied).catch(() => fallbackCopy(url, showCopied));
+    } else {
+      fallbackCopy(url, showCopied);
+    }
+  }
+
+  function fallbackCopy(text, onDone) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) { /* no-op */ }
+    document.body.removeChild(ta);
+    if (onDone) onDone();
+  }
+
+  function scrollToMethodologySection(slug) {
+    if (!slug) return;
+    const el = document.getElementById(slug);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.classList.add('meth-anchor-flash');
+    setTimeout(() => el.classList.remove('meth-anchor-flash'), 1600);
   }
 
   // ─── Theme Toggle ──────────────────────────────────────────────────────
@@ -3791,6 +3910,13 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     }
 
     renderAll();
+
+    // Methodology section permalinks: assign ids + copy-link buttons once,
+    // then scroll to the requested section if the URL asked for one.
+    initMethodologyAnchors();
+    if (urlState.tab === 'methodology' && urlState.section) {
+      setTimeout(() => scrollToMethodologySection(urlState.section), 50);
+    }
 
     // Open profile if specified in URL (must happen after render so user data exists)
     if (urlState.profile && DATA.users[urlState.profile]) {

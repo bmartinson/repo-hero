@@ -368,7 +368,8 @@ The dashboard is a self-contained HTML file with a console-style theme inspired 
 - **Issue resolutions** — What counts as resolved, how assignees are credited through the alias map, and why the weight sits below PRs and reviews (only shown when Jira is configured)
 - **Outlier detection** — Statistical approach and thresholds
 - **Dashboard metrics** — Reference for all displayed data points
-- **Team roles & targets** — One table per configured role listing the satisfactory/goal weekly rate for each tracked metric (only shown when `roles` is configured)
+- **Team roles & targets** — One table per configured role listing the satisfactory/goal weekly rate for each tracked metric (only shown when `roles` is configured; roles where every metric is 0/0 are skipped)
+- **Section permalinks** — Every heading has a small 🔗 button that copies a shareable deep link (`?tab=methodology&section=<id>`) which opens straight to that section and scrolls it into view
 
 ### Time Scope Filter
 

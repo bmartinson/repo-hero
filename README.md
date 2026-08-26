@@ -235,6 +235,7 @@ npm run config 2024-06
 | Command                 | Description                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------ |
 | `npm start`             | **Full pipeline** — gather weekly data → enrich → combine → charts → dashboard |
+| `npm run refresh`       | Re-index alias/ignoreUsers changes, then re-enrich → combine → chart → dashboard (no re-gathering) |
 | `npm run gather`        | Gather data for a single date range (one output file)                          |
 | `npm run gather-weekly` | Split the configured date range into weeks and gather each                     |
 | `npm run enrich`        | Enrich historical data with predicted PR counts and recalculate scores         |
@@ -395,10 +396,18 @@ Example: `?tab=users&scope=90&sort=reviews` — Users tab, 3M scope, sorted by r
 If you update `aliases` or `ignoreUsers` in your config after gathering data, run:
 
 ```sh
+npm run refresh
+```
+
+This re-indexes every `.json` file in `.results_history/` (merging newly-aliased users, removing newly-ignored users, and recalculating scores), then re-runs enrich → combine → chart → dashboard so the change is fully reflected everywhere — including the generated `dashboard.html`. This is the easiest way to fix a user (e.g. a bot account like "Aws") still showing up after adding it to `ignoreUsers` or aliasing it into another name — those changes only affect newly-gathered data until the historical files are re-indexed.
+
+If you only want to re-index without re-running the rest of the pipeline (e.g. you're about to re-gather anyway), you can run the re-indexer alone:
+
+```sh
 npm run reindex
 ```
 
-This walks every `.json` file in `.results_history/`, merges aliased users, removes ignored users, and recalculates scores. Use `--dry` to preview changes without writing files.
+This walks every `.json` file in `.results_history/`, merges aliased users, removes ignored users, and recalculates scores. Use `--dry` to preview changes without writing files. Note that `npm run reindex` alone does **not** rebuild `combined_results.json` or `dashboard.html` — follow it with `npm run combine && npm run dashboard` (or just use `npm run refresh` instead).
 
 ---
 

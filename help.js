@@ -33,6 +33,9 @@ console.log(
 );
 console.log(`  ${_cFgGreen}start${_cReset}\t\t(execute all)`);
 console.log(
+  `  ${_cFgGreen}refresh${_cReset}\t(re-index alias/ignoreUsers changes, then re-enrich, re-combine, re-chart, and re-generate the dashboard — no re-gathering)`
+);
+console.log(
   `    ${_cFgGreen}gather${_cReset}\t(gather data and generate .results_history/*.json)`
 );
 console.log(

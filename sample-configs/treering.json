@@ -145,52 +145,62 @@
   "roles": {
     "Software Engineer": {
       "pullRequests": { "satisfactory": 5, "goal": 7 },
-      "reviews": { "satisfactory": 8, "goal": 10 },
+      "feedback": { "satisfactory": 4, "goal": 5 },
+      "approvals": { "satisfactory": 4, "goal": 5 },
       "issueResolutions": { "satisfactory": 0, "goal": 2 }
     },
     "Senior Software Engineer": {
       "pullRequests": { "satisfactory": 5, "goal": 6 },
-      "reviews": { "satisfactory": 12, "goal": 15 },
+      "feedback": { "satisfactory": 6, "goal": 8 },
+      "approvals": { "satisfactory": 6, "goal": 7 },
       "issueResolutions": { "satisfactory": 0, "goal": 1 }
     },
     "Team Lead": {
       "pullRequests": { "satisfactory": 5, "goal": 6 },
-      "reviews": { "satisfactory": 12, "goal": 15 },
+      "feedback": { "satisfactory": 6, "goal": 8 },
+      "approvals": { "satisfactory": 6, "goal": 7 },
       "issueResolutions": { "satisfactory": 0, "goal": 0 }
     },
     "DevOps Engineer": {
       "pullRequests": { "satisfactory": 5, "goal": 7 },
-      "reviews": { "satisfactory": 5, "goal": 5 },
+      "feedback": { "satisfactory": 2, "goal": 3 },
+      "approvals": { "satisfactory": 3, "goal": 3 },
       "issueResolutions": { "satisfactory": 0, "goal": 0 }
     },
     "Support Engineer": {
       "pullRequests": { "satisfactory": 3, "goal": 3 },
-      "reviews": { "satisfactory": 3, "goal": 5 },
+      "feedback": { "satisfactory": 1, "goal": 2 },
+      "approvals": { "satisfactory": 2, "goal": 3 },
       "issueResolutions": { "satisfactory": 12, "goal": 15 }
     },
     "BI Analyst": {
       "pullRequests": { "satisfactory": 2, "goal": 5 },
-      "reviews": { "satisfactory": 0, "goal": 1 },
+      "feedback": { "satisfactory": 0, "goal": 1 },
+      "approvals": { "satisfactory": 0, "goal": 1 },
       "issueResolutions": { "satisfactory": 0, "goal": 0 }
     },
     "AI Engineer": {
       "pullRequests": { "satisfactory": 2, "goal": 3 },
-      "reviews": { "satisfactory": 3, "goal": 5 },
+      "feedback": { "satisfactory": 1, "goal": 2 },
+      "approvals": { "satisfactory": 2, "goal": 3 },
       "issueResolutions": { "satisfactory": 0, "goal": 0 }
     },
     "Senior Data Scientist": {
       "pullRequests": { "satisfactory": 0, "goal": 1 },
-      "reviews": { "satisfactory": 3, "goal": 5 },
+      "feedback": { "satisfactory": 1, "goal": 2 },
+      "approvals": { "satisfactory": 2, "goal": 3 },
       "issueResolutions": { "satisfactory": 0, "goal": 0 }
     },
     "Salesforce Architect": {
       "pullRequests": { "satisfactory": 0, "goal": 3 },
-      "reviews": { "satisfactory": 3, "goal": 5 },
+      "feedback": { "satisfactory": 1, "goal": 2 },
+      "approvals": { "satisfactory": 2, "goal": 3 },
       "issueResolutions": { "satisfactory": 0, "goal": 0 }
     },
     "VP of Engineering": {
       "pullRequests": { "satisfactory": 0, "goal": 2 },
-      "reviews": { "satisfactory": 3, "goal": 5 },
+      "feedback": { "satisfactory": 1, "goal": 2 },
+      "approvals": { "satisfactory": 2, "goal": 3 },
       "issueResolutions": { "satisfactory": 0, "goal": 0 }
     }
   },

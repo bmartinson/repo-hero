@@ -138,7 +138,8 @@ files.forEach(file => {
         pendingCommits: 0,
         loc: 0,
         filesTouched: 0,
-        reviews: 0,
+        approvals: 0,
+        feedback: 0,
         issueResolutions: 0,
         score: 0,
         predictedPullRequests: 0,
@@ -155,7 +156,8 @@ files.forEach(file => {
     merged[newName].pendingCommits += user.pendingCommits || 0;
     merged[newName].loc += user.loc || 0;
     merged[newName].filesTouched += user.filesTouched || 0;
-    merged[newName].reviews += user.reviews || 0;
+    merged[newName].approvals += user.approvals || 0;
+    merged[newName].feedback += user.feedback || 0;
     merged[newName].issueResolutions += user.issueResolutions || 0;
     merged[newName].predictedPullRequests += user.predictedPullRequests || 0;
 
@@ -165,7 +167,8 @@ files.forEach(file => {
         if (!merged[newName].repoBreakdown[repo]) {
           merged[newName].repoBreakdown[repo] = {
             pullRequests: 0,
-            reviews: 0,
+            approvals: 0,
+            feedback: 0,
             commits: 0,
             loc: 0,
             filesTouched: 0,
@@ -173,7 +176,8 @@ files.forEach(file => {
         }
         merged[newName].repoBreakdown[repo].pullRequests +=
           rb.pullRequests || 0;
-        merged[newName].repoBreakdown[repo].reviews += rb.reviews || 0;
+        merged[newName].repoBreakdown[repo].approvals += rb.approvals || 0;
+        merged[newName].repoBreakdown[repo].feedback += rb.feedback || 0;
         merged[newName].repoBreakdown[repo].commits += rb.commits || 0;
         merged[newName].repoBreakdown[repo].loc += rb.loc || 0;
         merged[newName].repoBreakdown[repo].filesTouched +=

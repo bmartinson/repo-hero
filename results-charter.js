@@ -15,7 +15,8 @@ const trendingScore = {};
 const trendingCommits = {};
 const trendingPullRequests = {};
 const trendingFilesTouched = {};
-const trendingReviews = {};
+const trendingApprovals = {};
+const trendingFeedback = {};
 const trendingLoc = {};
 const trendingIssueResolutions = {};
 
@@ -32,7 +33,8 @@ for (const [key, value] of Object.entries(data)) {
         trendingCommits[name] = {};
         trendingPullRequests[name] = {};
         trendingFilesTouched[name] = {};
-        trendingReviews[name] = {};
+        trendingApprovals[name] = {};
+        trendingFeedback[name] = {};
         trendingLoc[name] = {};
         trendingIssueResolutions[name] = {};
       }
@@ -41,7 +43,8 @@ for (const [key, value] of Object.entries(data)) {
       trendingCommits[name][date] = user.commits || 0;
       trendingPullRequests[name][date] = user.pullRequests || 0;
       trendingFilesTouched[name][date] = user.filesTouched || 0;
-      trendingReviews[name][date] = user.reviews || 0;
+      trendingApprovals[name][date] = user.approvals || 0;
+      trendingFeedback[name][date] = user.feedback || 0;
       trendingLoc[name][date] = user.loc || 0;
       trendingIssueResolutions[name][date] = user.issueResolutions || 0;
     }
@@ -73,7 +76,8 @@ const outputFiles = [
   'trending_commits.csv',
   'trending_pullRequests.csv',
   'trending_filesTouched.csv',
-  'trending_reviews.csv',
+  'trending_approvals.csv',
+  'trending_feedback.csv',
   'trending_loc.csv',
   'trending_issueResolutions.csv',
 ];
@@ -89,6 +93,7 @@ writeCsv('trending_score.csv', trendingScore);
 writeCsv('trending_commits.csv', trendingCommits);
 writeCsv('trending_pullRequests.csv', trendingPullRequests);
 writeCsv('trending_filesTouched.csv', trendingFilesTouched);
-writeCsv('trending_reviews.csv', trendingReviews);
+writeCsv('trending_approvals.csv', trendingApprovals);
+writeCsv('trending_feedback.csv', trendingFeedback);
 writeCsv('trending_loc.csv', trendingLoc);
 writeCsv('trending_issueResolutions.csv', trendingIssueResolutions);

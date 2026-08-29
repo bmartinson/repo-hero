@@ -1312,8 +1312,12 @@ function _processProjects() {
         _RESULTS.users[alias].filesTouched = 0;
       }
 
-      if (!_RESULTS.users[alias].reviews) {
-        _RESULTS.users[alias].reviews = 0;
+      if (!_RESULTS.users[alias].approvals) {
+        _RESULTS.users[alias].approvals = 0;
+      }
+
+      if (!_RESULTS.users[alias].feedback) {
+        _RESULTS.users[alias].feedback = 0;
       }
 
       if (!_RESULTS.users[alias].repoBreakdown) {
@@ -1356,7 +1360,8 @@ function _processProjects() {
                     if (!_RESULTS.users[alias].repoBreakdown[repoName]) {
                       _RESULTS.users[alias].repoBreakdown[repoName] = {
                         pullRequests: 0,
-                        reviews: 0,
+                        approvals: 0,
+                        feedback: 0,
                         commits: 0,
                         loc: 0,
                         filesTouched: 0,
@@ -1394,7 +1399,8 @@ function _processProjects() {
                           if (!_RESULTS.users[alias].repoBreakdown[repoName]) {
                             _RESULTS.users[alias].repoBreakdown[repoName] = {
                               pullRequests: 0,
-                              reviews: 0,
+                              approvals: 0,
+                              feedback: 0,
                               commits: 0,
                               loc: 0,
                               filesTouched: 0,
@@ -1406,26 +1412,47 @@ function _processProjects() {
                       }
 
                       reviews.forEach(review => {
+                        const isApproval = review?.state === 'APPROVED';
+                        const isFeedback =
+                          review?.state === 'CHANGES_REQUESTED' ||
+                          (review?.state === 'COMMENTED' &&
+                            typeof review?.body === 'string' &&
+                            review.body.trim().length > 0);
+
+                        if (!isApproval && !isFeedback) {
+                          return;
+                        }
+
                         const reviewerAlias = getAliasForUser(
-                          review.user.login
+                          review?.user?.login
                         );
+                        if (!reviewerAlias) {
+                          return;
+                        }
 
                         if (!_RESULTS.users[reviewerAlias]) {
                           _RESULTS.users[reviewerAlias] = {};
                         }
 
-                        if (!_RESULTS.users[reviewerAlias].reviews) {
-                          _RESULTS.users[reviewerAlias].reviews = 0;
+                        if (!_RESULTS.users[reviewerAlias].approvals) {
+                          _RESULTS.users[reviewerAlias].approvals = 0;
+                        }
+
+                        if (!_RESULTS.users[reviewerAlias].feedback) {
+                          _RESULTS.users[reviewerAlias].feedback = 0;
                         }
 
                         if (!_RESULTS.users[reviewerAlias].repoBreakdown) {
                           _RESULTS.users[reviewerAlias].repoBreakdown = {};
                         }
 
-                        // count the review
-                        _RESULTS.users[reviewerAlias].reviews++;
+                        if (isApproval) {
+                          _RESULTS.users[reviewerAlias].approvals++;
+                        } else if (isFeedback) {
+                          _RESULTS.users[reviewerAlias].feedback++;
+                        }
 
-                        // Track per-repo reviews
+                        // Track per-repo approvals and feedback
                         if (repoName) {
                           if (
                             !_RESULTS.users[reviewerAlias].repoBreakdown[
@@ -1436,14 +1463,22 @@ function _processProjects() {
                               repoName
                             ] = {
                               pullRequests: 0,
-                              reviews: 0,
+                              approvals: 0,
+                              feedback: 0,
                               commits: 0,
                               loc: 0,
                               filesTouched: 0,
                             };
                           }
-                          _RESULTS.users[reviewerAlias].repoBreakdown[repoName]
-                            .reviews++;
+                          if (isApproval) {
+                            _RESULTS.users[reviewerAlias].repoBreakdown[
+                              repoName
+                            ].approvals++;
+                          } else if (isFeedback) {
+                            _RESULTS.users[reviewerAlias].repoBreakdown[
+                              repoName
+                            ].feedback++;
+                          }
                         }
                       });
                     })
@@ -1605,7 +1640,8 @@ function processUserCommits(packageName, project) {
           if (!_RESULTS.users[author].repoBreakdown[repoName]) {
             _RESULTS.users[author].repoBreakdown[repoName] = {
               pullRequests: 0,
-              reviews: 0,
+              approvals: 0,
+              feedback: 0,
               commits: 0,
               loc: 0,
               filesTouched: 0,
@@ -1675,9 +1711,13 @@ _validateToken()
           _RESULTS.users[user].commits = 0;
         }
 
-        // make sure reviews are defined
-        if (!_RESULTS.users[user].reviews) {
-          _RESULTS.users[user].reviews = 0;
+        // make sure approvals and feedback are defined
+        if (!_RESULTS.users[user].approvals) {
+          _RESULTS.users[user].approvals = 0;
+        }
+
+        if (!_RESULTS.users[user].feedback) {
+          _RESULTS.users[user].feedback = 0;
         }
 
         // make sure loc is defined

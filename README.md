@@ -12,7 +12,7 @@ A configurable CLI toolkit for analyzing the health of git repositories and thei
 - **Interactive dashboard** — terminal-themed single-file HTML with Chart.js visualizations; no server required
 - **Flexible time scoping** — filter by 1W / 2W / 3W / 1M / 2M / 3M / 6M / 1Y / All directly in the dashboard (default: 1W)
 - **Smart overlap detection** — when weekly and monthly data coexist, the dashboard automatically prefers the more granular data
-- **Scoring engine** — configurable weighted formula across PRs, commits, reviews, issue resolutions, LOC, and files touched (see [`score.js`](score.js))
+- **Scoring engine** — configurable weighted formula across PRs, commits, feedback, approvals, issue resolutions, LOC, and files touched (see [`score.js`](score.js))
 - **Issue resolution tracking** — optionally pull resolved issues from one or more Jira projects and attribute them to contributors through the same alias map used for git and GitHub identities
 - **PR prediction enrichment** — for historical periods without pull requests, Repo Hero learns each user's commits-per-PR ratio and synthesizes predicted PR counts
 - **Positive outlier detection** — users performing > 1.5σ above the mean on any metric are flagged with a 🔥 badge; click the badge to see the exact z-score and explanation
@@ -91,13 +91,15 @@ Create a `config.json` in the project root (it is gitignored). All top-level pro
       // it from that role's attainment calculation (and from its Methodology table row)
       "score": { "satisfactory": 20, "goal": 35 },
       "pullRequests": { "satisfactory": 1, "goal": 2 },
-      "reviews": { "satisfactory": 1, "goal": 3 },
+      "feedback": { "satisfactory": 1, "goal": 3 },
+      "approvals": { "satisfactory": 2, "goal": 4 },
       "issueResolutions": { "satisfactory": 0.5, "goal": 1 },
     },
     "Senior Software Engineer": {
       "score": { "satisfactory": 40, "goal": 60 },
       "pullRequests": { "satisfactory": 2, "goal": 3 },
-      "reviews": { "satisfactory": 3, "goal": 5 },
+      "feedback": { "satisfactory": 2, "goal": 4 },
+      "approvals": { "satisfactory": 4, "goal": 6 },
       "issueResolutions": { "satisfactory": 1, "goal": 2 },
     },
   },
@@ -207,7 +209,7 @@ the project and date-range clauses are still applied on top so weekly bucketing 
 
 **Assignee mapping:** resolutions are attributed to the issue's assignee, resolved through the
 existing `aliases` map so a person's issues roll up into the same record as their commits,
-PRs, and reviews. Resolution is attempted in this order:
+PRs, feedback, and approvals. Resolution is attempted in this order:
 
 1. Jira display name (e.g. `"Jane Smith"`) — matches the canonical alias keys
 2. Assignee email address, then its local part (e.g. `jsmith`) — matches alias entries
@@ -307,10 +309,11 @@ Scores are calculated per user per period using the weights defined in [`score.j
 
 | Metric                  | Weight   | Notes                                                                |
 | ----------------------- | -------- | -------------------------------------------------------------------- |
+| Feedback                | × 17     | PR reviews with changes requested or non-empty comment text          |
 | Pull Requests           | × 15     | Uses real PRs (with 1+ reviews); falls back to predicted PRs if zero |
 | Predicted Pull Requests | × 15     | Synthesized from commits-per-PR ratio (used as fallback)             |
-| Reviews                 | × 17     | Code reviews authored — weighted highest as a team multiplier        |
 | Issue Resolutions       | × 10     | Jira issues resolved by the user (when Jira is configured)           |
+| Approvals               | × 8      | PR reviews with approval state                                       |
 | Commits                 | × 0.01   | Raw commit count                                                     |
 | Lines of Code           | × 0.0001 | Net lines changed (additions + deletions)                            |
 | Files Touched           | × 0.0001 | Unique files modified                                                |
@@ -337,7 +340,7 @@ The dashboard is a self-contained HTML file with a console-style theme inspired 
 
 ### Dashboard Tab
 
-- **Trend charts** — Score, Pull Requests, Reviews, Issue Resolutions (when configured), Commits, LOC, Files Touched, Active Users, Team Score
+- **Trend charts** — Score, Pull Requests, Feedback, Approvals, Issue Resolutions (when configured), Commits, LOC, Files Touched, Active Users, Team Score
 - **Full-screen charts** — Every chart tile has a ⛶ expand button that opens the chart in a near-fullscreen modal; close with the CLOSE button, a click outside, or `Esc`
 - **Theme toggle** — A floating sun/moon button in the bottom-right corner switches between light and dark mode from any tab. The choice is stored in `localStorage` and applied before first paint, so reloading never flashes the wrong theme
 - **Top 5 leaderboards** — Per metric, updated when the time scope changes
@@ -349,24 +352,24 @@ The dashboard is a self-contained HTML file with a console-style theme inspired 
 - **Role badge & attainment bar** — When a user has an assigned role (see `roles`/`userRoles` in [Configuration](#configuration)), their tile shows the role name plus a thin bar with a dot indicating how their current-scope activity compares to that role's satisfactory/goal targets — far left is below satisfactory (❗), the middle is right at satisfactory (🫥), and the far right is at or beyond goal on every applicable metric (🤩). The blended overall verdict allows a small tolerance below satisfactory (down to -0.25 on the blended scale) before flipping to Failing, so a user who's strong on most metrics with only a minor shortfall elsewhere still reads as Meets Expectations overall. Targets are weekly rates, so the bar stays meaningful no matter which time scope is selected. The weekly rate is normalized to the user's actual active window: it never starts before their first tracked activity (so new hires viewed over a wide scope like YTD aren't penalized for weeks before they joined), and it stops at an explicit `userEndDates` entry when one is configured (so departed contributors aren't penalized for weeks after they left) — hover the bar to see the exact window it was evaluated over
 - **User profiles** — Click any user card to see:
   - First/last activity dates — the earliest and most recent tracked-activity dates across all history, for quick context on tenure/recency
-  - Role attainment breakdown (when the user has an assigned role) — a plain-language sentiment summary of where they're excelling/on track/falling behind, an overall attainment bar, and a per-metric bar (Pull Requests, Reviews, Issue Resolutions, Score) each with its own weekly rate, ❗/🫥/🤩 indicator, and hover tooltip showing the satisfactory/goal targets and evaluation window used
+  - Role attainment breakdown (when the user has an assigned role) — a plain-language sentiment summary of where they're excelling/on track/falling behind, an overall attainment bar, and a per-metric bar (Pull Requests, Feedback, Approvals, Issue Resolutions, Score) each with its own weekly rate, ❗/🫥/🤩 indicator, and hover tooltip showing the satisfactory/goal targets and evaluation window used
   - Full history with per-metric line charts
   - Paginated per-period contribution breakdown table (100 per page, newest first)
-  - Repository breakdown doughnut charts (PRs, reviews, commits by repo)
+  - Repository breakdown doughnut charts (PRs, feedback, approvals, commits by repo)
 - **Score distribution** — Bell curve showing where each user falls relative to the team, synced to the active Sort By metric (also expandable to full screen)
 
 ### Repos Tab
 
 - **Repository grid** — All repositories ranked by weighted contribution share across the selected scope
 - **Contribution percentage** — Each card shows its share of total engineering effort with a visual progress bar
-- **Metric breakdown** — PRs, Reviews, Commits, LOC, Files Touched, and contributor count per repo
+- **Metric breakdown** — PRs, Feedback, Approvals, Commits, LOC, Files Touched, and contributor count per repo
 - **Popularity badges** — Repos with contribution scores > 1σ above average are flagged with a ⭐ badge
 
 ### Methodology Tab
 
 - **Scoring formula** — Exact weights and calculation logic (auto-synced from `score.js`)
 - **Predicted pull requests** — How the two-pass prediction algorithm works
-- **Issue resolutions** — What counts as resolved, how assignees are credited through the alias map, and why the weight sits below PRs and reviews (only shown when Jira is configured)
+- **Issue resolutions** — What counts as resolved, how assignees are credited through the alias map, and why the weight sits below Feedback and PRs (only shown when Jira is configured)
 - **Outlier detection** — Statistical approach and thresholds
 - **Dashboard metrics** — Reference for all displayed data points
 - **Team roles & targets** — One table per configured role listing the satisfactory/goal weekly rate for each tracked metric (only shown when `roles` is configured; roles where every metric is 0/0 are skipped)
@@ -382,7 +385,7 @@ The x-axis labels adapt automatically: weekly for short ranges (e.g. "Apr 1 '25"
 
 Tab, scope, sort, and open user profile are persisted in URL query parameters. Refreshing the page restores your exact view. Parameters at default values are omitted to keep URLs clean.
 
-Example: `?tab=users&scope=90&sort=reviews` — Users tab, 3M scope, sorted by reviews.
+Example: `?tab=users&scope=90&sort=feedback` — Users tab, 3M scope, sorted by feedback.
 
 ### Header & Footer
 

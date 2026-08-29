@@ -2036,7 +2036,7 @@ ${
         </thead>
         <tbody>
           <tr><td>Score</td><td>Weighted composite of all metrics below. Higher is better.</td></tr>
-          <tr><td>Pull Requests</td><td>Real PRs merged/opened, or predicted PRs when real data is unavailable.</td></tr>
+          <tr><td>Pull Requests</td><td>Real PRs merged/opened with 1+ reviews, or predicted PRs when real data is unavailable.</td></tr>
           <tr><td>Reviews</td><td>Pull request reviews performed (approved, commented, or requested changes).</td></tr>
 ${hasIssueResolutions ? `<tr><td>Issue Resolutions</td><td>Jira issues resolved in the period, credited to their assignee via the alias map. Captures delivered work that leaves no commit behind.</td></tr>` : ''}
           <tr><td>Commits</td><td>Total git commits authored across all tracked repositories.</td></tr>

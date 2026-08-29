@@ -232,21 +232,21 @@ npm run config 2024-06
 
 ## Commands
 
-| Command                 | Description                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| `npm start`             | **Full pipeline** — gather weekly data → enrich → combine → charts → dashboard |
+| Command                 | Description                                                                                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------- |
+| `npm start`             | **Full pipeline** — gather weekly data → enrich → combine → charts → dashboard                     |
 | `npm run refresh`       | Re-index alias/ignoreUsers changes, then re-enrich → combine → chart → dashboard (no re-gathering) |
-| `npm run gather`        | Gather data for a single date range (one output file)                          |
-| `npm run gather-weekly` | Split the configured date range into weeks and gather each                     |
-| `npm run enrich`        | Enrich historical data with predicted PR counts and recalculate scores         |
-| `npm run combine`       | Merge all `.results_history/*.json` into `combined_results.json`               |
-| `npm run chart`         | Regenerate CSV files and dashboard from combined results                       |
-| `npm run dashboard`     | Regenerate only the HTML dashboard                                             |
-| `npm run email`         | Email the existing dashboard without regenerating it                           |
-| `npm run reindex`       | Re-apply alias and ignore-user changes to all result files                     |
-| `npm run cleanup`       | Remove orphaned cache files (use `-- --dry` to preview)                        |
-| `npm run config <date>` | Quick-reconfigure `config.json` for a year or month                            |
-| `npm run help`          | Show the command reference in the terminal                                     |
+| `npm run gather`        | Gather data for a single date range (one output file)                                              |
+| `npm run gather-weekly` | Split the configured date range into weeks and gather each                                         |
+| `npm run enrich`        | Enrich historical data with predicted PR counts and recalculate scores                             |
+| `npm run combine`       | Merge all `.results_history/*.json` into `combined_results.json`                                   |
+| `npm run chart`         | Regenerate CSV files and dashboard from combined results                                           |
+| `npm run dashboard`     | Regenerate only the HTML dashboard                                                                 |
+| `npm run email`         | Email the existing dashboard without regenerating it                                               |
+| `npm run reindex`       | Re-apply alias and ignore-user changes to all result files                                         |
+| `npm run cleanup`       | Remove orphaned cache files (use `-- --dry` to preview)                                            |
+| `npm run config <date>` | Quick-reconfigure `config.json` for a year or month                                                |
+| `npm run help`          | Show the command reference in the terminal                                                         |
 
 ### CLI Overrides
 
@@ -305,15 +305,15 @@ npm start
 
 Scores are calculated per user per period using the weights defined in [`score.js`](score.js):
 
-| Metric                  | Weight   | Notes                                                         |
-| ----------------------- | -------- | ------------------------------------------------------------- |
-| Pull Requests           | × 15     | Uses real PRs; falls back to predicted PRs if zero            |
-| Predicted Pull Requests | × 15     | Synthesized from commits-per-PR ratio (used as fallback)      |
-| Reviews                 | × 17     | Code reviews authored — weighted highest as a team multiplier |
-| Issue Resolutions       | × 10     | Jira issues resolved by the user (when Jira is configured)    |
-| Commits                 | × 0.01   | Raw commit count                                              |
-| Lines of Code           | × 0.0001 | Net lines changed (additions + deletions)                     |
-| Files Touched           | × 0.0001 | Unique files modified                                         |
+| Metric                  | Weight   | Notes                                                                |
+| ----------------------- | -------- | -------------------------------------------------------------------- |
+| Pull Requests           | × 15     | Uses real PRs (with 1+ reviews); falls back to predicted PRs if zero |
+| Predicted Pull Requests | × 15     | Synthesized from commits-per-PR ratio (used as fallback)             |
+| Reviews                 | × 17     | Code reviews authored — weighted highest as a team multiplier        |
+| Issue Resolutions       | × 10     | Jira issues resolved by the user (when Jira is configured)           |
+| Commits                 | × 0.01   | Raw commit count                                                     |
+| Lines of Code           | × 0.0001 | Net lines changed (additions + deletions)                            |
+| Files Touched           | × 0.0001 | Unique files modified                                                |
 
 The team score is the average of all non-ignored users' scores for a given period.
 

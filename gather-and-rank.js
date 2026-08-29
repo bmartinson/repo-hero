@@ -1144,9 +1144,12 @@ function _processProjects() {
   const pullRequests = [];
   const contributors = [];
 
-  // Set some defaults for totalCommits
+  // Set some defaults for totalCommits and totalPullRequests
   if (!_RESULTS.totalCommits) {
     _RESULTS.totalCommits = 0;
+  }
+  if (!_RESULTS.totalPullRequests) {
+    _RESULTS.totalPullRequests = 0;
   }
 
   if (_CONFIG && _CONFIG.projects) {
@@ -1283,14 +1286,8 @@ function _processProjects() {
       .concat(processingPullRequests)
       .concat(processingContributors)
   ).then(() => {
-    const rangedPullRequests = pullRequests.filter(
-      pr =>
-        new Date(pr.created_at) >= new Date(_START_DATE) &&
-        new Date(pr.created_at) <= new Date(_END_DATE)
-    );
-
-    // track the total number of pull requests for the range
-    _RESULTS.totalPullRequests = rangedPullRequests.length;
+    // track the total number of pull requests with 1+ reviews for the range
+    _RESULTS.totalPullRequests = 0;
 
     contributors.forEach(contributor => {
       const alias = getAliasForUser(contributor);
@@ -1332,25 +1329,7 @@ function _processProjects() {
             !pr.draft // Exclude draft pull requests
         );
 
-        // count the pull requests and track per-repo
-        _RESULTS.users[alias].pullRequests += userPullRequests.length;
-        userPullRequests.forEach(pr => {
-          const repoName = extractRepoName(pr);
-          if (repoName) {
-            if (!_RESULTS.users[alias].repoBreakdown[repoName]) {
-              _RESULTS.users[alias].repoBreakdown[repoName] = {
-                pullRequests: 0,
-                reviews: 0,
-                commits: 0,
-                loc: 0,
-                filesTouched: 0,
-              };
-            }
-            _RESULTS.users[alias].repoBreakdown[repoName].pullRequests++;
-          }
-        });
-
-        // tally up lines of code change
+        // tally up lines of code change and fetch reviews
         userPullRequests.forEach(pr => {
           const repoName = extractRepoName(pr);
           processingPullRequestDetails.push(
@@ -1402,50 +1381,71 @@ function _processProjects() {
                     `${pr.pull_request.url.replace('https://api.github.com', '')}/reviews`
                   )
                     .then(prReviewResponse => {
-                      if (Array.isArray(prReviewResponse?.data)) {
-                        prReviewResponse?.data?.forEach(review => {
-                          const reviewerAlias = getAliasForUser(
-                            review.user.login
-                          );
+                      const reviews = Array.isArray(prReviewResponse?.data)
+                        ? prReviewResponse.data
+                        : [];
 
-                          if (!_RESULTS.users[reviewerAlias]) {
-                            _RESULTS.users[reviewerAlias] = {};
+                      // Only count pull requests that have 1+ reviews
+                      if (reviews.length > 0) {
+                        _RESULTS.totalPullRequests++;
+                        _RESULTS.users[alias].pullRequests++;
+
+                        if (repoName) {
+                          if (!_RESULTS.users[alias].repoBreakdown[repoName]) {
+                            _RESULTS.users[alias].repoBreakdown[repoName] = {
+                              pullRequests: 0,
+                              reviews: 0,
+                              commits: 0,
+                              loc: 0,
+                              filesTouched: 0,
+                            };
                           }
+                          _RESULTS.users[alias].repoBreakdown[repoName]
+                            .pullRequests++;
+                        }
+                      }
 
-                          if (!_RESULTS.users[reviewerAlias].reviews) {
-                            _RESULTS.users[reviewerAlias].reviews = 0;
-                          }
+                      reviews.forEach(review => {
+                        const reviewerAlias = getAliasForUser(
+                          review.user.login
+                        );
 
-                          if (!_RESULTS.users[reviewerAlias].repoBreakdown) {
-                            _RESULTS.users[reviewerAlias].repoBreakdown = {};
-                          }
+                        if (!_RESULTS.users[reviewerAlias]) {
+                          _RESULTS.users[reviewerAlias] = {};
+                        }
 
-                          // count the review
-                          _RESULTS.users[reviewerAlias].reviews++;
+                        if (!_RESULTS.users[reviewerAlias].reviews) {
+                          _RESULTS.users[reviewerAlias].reviews = 0;
+                        }
 
-                          // Track per-repo reviews
-                          if (repoName) {
-                            if (
-                              !_RESULTS.users[reviewerAlias].repoBreakdown[
-                                repoName
-                              ]
-                            ) {
-                              _RESULTS.users[reviewerAlias].repoBreakdown[
-                                repoName
-                              ] = {
-                                pullRequests: 0,
-                                reviews: 0,
-                                commits: 0,
-                                loc: 0,
-                                filesTouched: 0,
-                              };
-                            }
+                        if (!_RESULTS.users[reviewerAlias].repoBreakdown) {
+                          _RESULTS.users[reviewerAlias].repoBreakdown = {};
+                        }
+
+                        // count the review
+                        _RESULTS.users[reviewerAlias].reviews++;
+
+                        // Track per-repo reviews
+                        if (repoName) {
+                          if (
+                            !_RESULTS.users[reviewerAlias].repoBreakdown[
+                              repoName
+                            ]
+                          ) {
                             _RESULTS.users[reviewerAlias].repoBreakdown[
                               repoName
-                            ].reviews++;
+                            ] = {
+                              pullRequests: 0,
+                              reviews: 0,
+                              commits: 0,
+                              loc: 0,
+                              filesTouched: 0,
+                            };
                           }
-                        });
-                      }
+                          _RESULTS.users[reviewerAlias].repoBreakdown[repoName]
+                            .reviews++;
+                        }
+                      });
                     })
                     .finally(() => {
                       prdResolve();

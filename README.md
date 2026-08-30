@@ -379,6 +379,7 @@ The dashboard is a self-contained HTML file with a console-style theme inspired 
   - Role attainment breakdown (when the user has an assigned role) — a plain-language sentiment summary of where they're excelling/on track/falling behind, an overall attainment bar, and a per-metric bar (Pull Requests, Feedback, Approvals, Issue Resolutions, Score) each with its own weekly rate, ❗/🙂/🤩 indicator, and hover tooltip showing the satisfactory/goal targets and evaluation window used
   - Full history with per-metric line charts
   - Paginated per-period contribution breakdown table (100 per page, newest first)
+  - Collapsible pull request list — every PR counted toward that user's Pull Requests metric (real PRs with 1+ reviews) for the currently selected time scope, newest first, each linking out to GitHub in a new tab. Scrolls internally past 10 entries so the modal doesn't grow unbounded for prolific contributors.
   - Repository breakdown doughnut charts (PRs, feedback, approvals, commits by repo)
 - **Score distribution** — Bell curve showing where each user falls relative to the team, synced to the active Sort By metric (also expandable to full screen)
 

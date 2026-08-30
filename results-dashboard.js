@@ -163,6 +163,7 @@ filteredEntries.forEach(({ entry, startDate, endDate }) => {
       churnNonBotComments: user.churnNonBotComments || 0,
       repoBreakdown: user.repoBreakdown || {},
       resolutionBreakdown: user.resolutionBreakdown || {},
+      pullRequestList: user.pullRequestList || [],
     };
   });
 });
@@ -729,7 +730,7 @@ header {
 }
 
 .user-role-block {
-  grid-column: span 2;
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1286,6 +1287,63 @@ header {
   font-size: 11px;
   color: var(--fg-dim);
   letter-spacing: 0.5px;
+}
+
+/* ─── Pull Request List ──────────────────────────────────────────────────── */
+
+.pr-list-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.pr-list-wrap.open {
+  /* Roughly 10 rows tall (~36px each) before an inline scrollbar kicks in,
+     so the modal doesn't grow unbounded for prolific contributors. */
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.pr-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.pr-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--fg);
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.pr-list-item:hover { background: var(--bg-card-hover); }
+
+.pr-list-title {
+  font-size: 12px;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.pr-list-meta {
+  font-size: 11px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pr-list-empty {
+  font-size: 12px;
+  color: var(--fg-dim);
+  padding: 10px 0;
 }
 
 /* ─── Repository Breakdown Pie Charts ────────────────────────────────────── */
@@ -2375,6 +2433,12 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
   // ─── Helpers ────────────────────────────────────────────────────────────
 
   function parseDate(str) { return new Date(str + 'T00:00:00'); }
+  function formatPRDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
   function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
   function escapeHtml(str) {
     return String(str == null ? '' : str)
@@ -3431,7 +3495,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
 
   // ─── User Profile ──────────────────────────────────────────────────────
 
-  window.openProfile = function(userName) {
+  window.openProfile = function(userName, resetScroll) {
+    if (resetScroll === undefined) resetScroll = true;
     const overlay = document.getElementById('profile-overlay');
     const panel = document.getElementById('profile-panel');
     const periods = getScopedPeriods();
@@ -3541,6 +3606,38 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     html += '<div id="breakdown-content"></div>';
     html += '</div></div>';
 
+    // ─── Pull request list (same PRs counted toward the Pull Requests metric) ──
+    // A PR only counts toward that metric once it has 1+ reviews (see
+    // gather-and-rank.js) — pullRequestList is populated under that exact
+    // condition, so this list always matches what's being scored.
+    const prList = [];
+    periods.forEach(pid => {
+      const d = ud && ud.data[pid];
+      if (d && Array.isArray(d.pullRequestList)) prList.push(...d.pullRequestList);
+    });
+    prList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    html += '<div class="profile-breakdown">';
+    html += '<button class="breakdown-toggle" onclick="this.classList.toggle(\\'open\\');this.nextElementSibling.classList.toggle(\\'open\\')">'
+      + '<span class="caret">▶</span> PULL REQUESTS (' + prList.length + ')</button>';
+    html += '<div class="pr-list-wrap">';
+    if (prList.length === 0) {
+      html += '<div class="pr-list-empty">No pull requests counted for this window.</div>';
+    } else {
+      html += '<ul class="pr-list">';
+      html += prList.map(pr => {
+        const meta = [pr.repo, formatPRDate(pr.createdAt)].filter(Boolean).join(' · ');
+        return '<li>'
+          + '<a class="pr-list-item" href="' + escapeHtml(pr.url) + '" target="_blank" rel="noopener noreferrer">'
+            + '<span class="pr-list-title">' + escapeHtml(pr.title || ('#' + pr.number)) + '</span>'
+            + '<span class="pr-list-meta">' + escapeHtml(meta) + '</span>'
+          + '</a>'
+        + '</li>';
+      }).join('');
+      html += '</ul>';
+    }
+    html += '</div></div>';
+
     // ─── Repository breakdown pie chart ──────────────────────────────────
     const repoTotals = {};
     periods.forEach(pid => {
@@ -3573,6 +3670,13 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     panel.innerHTML = html;
     renderBreakdownPage();
     overlay.classList.add('visible');
+    // The overlay itself is the scroll container; without resetting it, a
+    // scroll position left over from a previous profile view (or from a long
+    // profile scrolled down before closing) would carry over, opening the
+    // next profile already scrolled past its top. Skipped only for the
+    // in-place theme-refresh re-render, which shouldn't jump the user's
+    // current scroll position while they're actively viewing a profile.
+    if (resetScroll) overlay.scrollTop = 0;
     pushState();
 
     // Render profile charts
@@ -3935,7 +4039,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     if (profileOverlay && profileOverlay.classList.contains('visible')) {
       const nameEl = document.querySelector('.profile-name');
       const key = nameEl ? nameEl.textContent.trim().toLowerCase() : null;
-      if (key && DATA.users[key]) openProfile(key);
+      if (key && DATA.users[key]) openProfile(key, false);
     }
   }
 

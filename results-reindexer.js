@@ -148,6 +148,7 @@ files.forEach(file => {
         churnNonBotComments: 0,
         repoBreakdown: {},
         resolutionBreakdown: {},
+        pullRequestList: [],
       };
     } else if (oldName !== newName || merged[newName]._seen) {
       fileMerges++;
@@ -200,6 +201,13 @@ files.forEach(file => {
         merged[newName].resolutionBreakdown[project] += count || 0;
       });
     }
+
+    // Merge pullRequestList
+    if (Array.isArray(user.pullRequestList)) {
+      merged[newName].pullRequestList = merged[newName].pullRequestList.concat(
+        user.pullRequestList
+      );
+    }
   });
 
   // Step 2: Re-calculate scores
@@ -222,6 +230,9 @@ files.forEach(file => {
     // Remove empty resolutionBreakdown
     if (Object.keys(user.resolutionBreakdown).length === 0)
       delete user.resolutionBreakdown;
+    // Remove empty pullRequestList
+    if (!user.pullRequestList || user.pullRequestList.length === 0)
+      delete user.pullRequestList;
     user.score = calculateScore(user);
   });
 

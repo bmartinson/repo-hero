@@ -1351,6 +1351,10 @@ function _processProjects() {
         _RESULTS.users[alias].repoBreakdown = {};
       }
 
+      if (!_RESULTS.users[alias].pullRequestList) {
+        _RESULTS.users[alias].pullRequestList = [];
+      }
+
       try {
         const userPullRequests = pullRequests.filter(
           pr =>
@@ -1421,6 +1425,14 @@ function _processProjects() {
                       if (reviews.length > 0) {
                         _RESULTS.totalPullRequests++;
                         _RESULTS.users[alias].pullRequests++;
+                        _RESULTS.users[alias].pullRequestList.push({
+                          title: pr.title,
+                          url: pr.html_url,
+                          number: pr.number,
+                          repo: repoName,
+                          createdAt: pr.created_at,
+                          mergedAt: prdResponse?.data.merged_at || null,
+                        });
 
                         if (repoName) {
                           if (!_RESULTS.users[alias].repoBreakdown[repoName]) {

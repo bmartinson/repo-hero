@@ -143,6 +143,9 @@ files.forEach(file => {
         issueResolutions: 0,
         score: 0,
         predictedPullRequests: 0,
+        churnOpenDurationDays: 0,
+        churnFeedbackReviews: 0,
+        churnNonBotComments: 0,
         repoBreakdown: {},
         resolutionBreakdown: {},
       };
@@ -160,6 +163,9 @@ files.forEach(file => {
     merged[newName].feedback += user.feedback || 0;
     merged[newName].issueResolutions += user.issueResolutions || 0;
     merged[newName].predictedPullRequests += user.predictedPullRequests || 0;
+    merged[newName].churnOpenDurationDays += user.churnOpenDurationDays || 0;
+    merged[newName].churnFeedbackReviews += user.churnFeedbackReviews || 0;
+    merged[newName].churnNonBotComments += user.churnNonBotComments || 0;
 
     // Merge repoBreakdown
     if (user.repoBreakdown) {
@@ -201,6 +207,16 @@ files.forEach(file => {
     delete user._seen;
     // Remove predictedPullRequests if zero (enricher will recalculate)
     if (!user.predictedPullRequests) delete user.predictedPullRequests;
+    // Remove churn fields if all zero (nothing to subtract / not yet gathered)
+    if (
+      !user.churnOpenDurationDays &&
+      !user.churnFeedbackReviews &&
+      !user.churnNonBotComments
+    ) {
+      delete user.churnOpenDurationDays;
+      delete user.churnFeedbackReviews;
+      delete user.churnNonBotComments;
+    }
     // Remove empty repoBreakdown
     if (Object.keys(user.repoBreakdown).length === 0) delete user.repoBreakdown;
     // Remove empty resolutionBreakdown

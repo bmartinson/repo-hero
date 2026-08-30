@@ -40,6 +40,7 @@ let _START_DATE = null; // string | null (YYYY-MM-DD)
 let _END_DATE = null; // string | null (YYYY-MM-DD)
 let _CONFIG = null; // any (config.json)
 let _ALIASES = {}; // { key: [value: string[]] }
+let _BOT_ALIASES = new Set(); // Set<string> of lower-cased alias names flagged as bots (config.json botUsers)
 let _RESULTS = {}; // any (results_timestamp.json)
 let _GITHUB_API = null; // axios instance for the GitHub API
 let _GITHUB_SEARCH_API = null; // axios instance for the GitHub API
@@ -885,6 +886,14 @@ function _configureApp() {
     });
   }
 
+  // Configure the set of alias names flagged as bots (config.json botUsers).
+  // botUsers is a flat list of existing alias keys (e.g. "DevOps Deployment")
+  // -- not raw GitHub logins -- so it is resolved against the alias names
+  // populated above, not against _CONFIG.aliases' values.
+  _BOT_ALIASES = new Set(
+    (_CONFIG?.botUsers || []).map(alias => String(alias).toLowerCase().trim())
+  );
+
   // Accept the start and end dates that have already been validated above
   _START_DATE = _CONFIG.startDate;
   _END_DATE = _CONFIG.endDate;
@@ -1320,6 +1329,24 @@ function _processProjects() {
         _RESULTS.users[alias].feedback = 0;
       }
 
+      // Churn sub-metrics (repo-hero's first "negative" metric). These are
+      // intentionally raw/uncombined here -- score.js's calculateChurn()
+      // applies the weighting and calculateScore() subtracts the composite
+      // from the user's overall score. Only eligible PRs (merged, 1+ review,
+      // 1+ approval) contribute to these -- see the churn eligibility check
+      // below.
+      if (!_RESULTS.users[alias].churnOpenDurationDays) {
+        _RESULTS.users[alias].churnOpenDurationDays = 0;
+      }
+
+      if (!_RESULTS.users[alias].churnFeedbackReviews) {
+        _RESULTS.users[alias].churnFeedbackReviews = 0;
+      }
+
+      if (!_RESULTS.users[alias].churnNonBotComments) {
+        _RESULTS.users[alias].churnNonBotComments = 0;
+      }
+
       if (!_RESULTS.users[alias].repoBreakdown) {
         _RESULTS.users[alias].repoBreakdown = {};
       }
@@ -1481,7 +1508,85 @@ function _processProjects() {
                           }
                         }
                       });
+
+                      // ─── Churn (negative metric) ──────────────────────
+                      // Only PRs that are merged, have 1+ review, and have
+                      // at least one APPROVED review are eligible to
+                      // generate churn -- this is a stricter set than the
+                      // "Pull Requests" metric above (which only requires
+                      // 1+ reviews) and is scoped to churn eligibility only.
+                      const hasApproval = reviews.some(
+                        review => review?.state === 'APPROVED'
+                      );
+                      const isChurnEligiblePR =
+                        prdResponse?.data?.merged === true &&
+                        reviews.length > 0 &&
+                        hasApproval;
+
+                      if (!isChurnEligiblePR) {
+                        return undefined;
+                      }
+
+                      const feedbackReviewCount = reviews.filter(
+                        review =>
+                          review?.state === 'CHANGES_REQUESTED' ||
+                          (review?.state === 'COMMENTED' &&
+                            typeof review?.body === 'string' &&
+                            review.body.trim().length > 0)
+                      ).length;
+
+                      const openDurationDays =
+                        prdResponse?.data?.merged_at &&
+                        prdResponse?.data?.created_at
+                          ? (new Date(prdResponse.data.merged_at) -
+                              new Date(prdResponse.data.created_at)) /
+                            (1000 * 60 * 60 * 24)
+                          : 0;
+
+                      _RESULTS.users[alias].churnOpenDurationDays +=
+                        openDurationDays;
+                      _RESULTS.users[alias].churnFeedbackReviews +=
+                        feedbackReviewCount;
+
+                      // Conversation (issue) comments are fetched separately
+                      // from review data -- they represent back-and-forth
+                      // discussion on the PR that is not tied to a formal
+                      // review submission. Comments authored by a configured
+                      // bot alias (config.json botUsers) are excluded so
+                      // automated tooling (CI bots, dependency bots, etc.)
+                      // doesn't inflate churn.
+                      if (!pr.comments_url) {
+                        return undefined;
+                      }
+
+                      return getFromGitHubAPI(
+                        pr.comments_url.replace(
+                          'https://api.github.com',
+                          ''
+                        )
+                      )
+                        .then(prCommentsResponse => {
+                          const comments = Array.isArray(
+                            prCommentsResponse?.data
+                          )
+                            ? prCommentsResponse.data
+                            : [];
+
+                          const nonBotCommentCount = comments.filter(
+                            comment => {
+                              const commentAlias = getAliasForUser(
+                                comment?.user?.login
+                              );
+                              return !_BOT_ALIASES.has(commentAlias);
+                            }
+                          ).length;
+
+                          _RESULTS.users[alias].churnNonBotComments +=
+                            nonBotCommentCount;
+                        })
+                        .catch(() => {});
                     })
+                    .catch(() => {})
                     .finally(() => {
                       prdResolve();
                     });

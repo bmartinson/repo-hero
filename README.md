@@ -56,7 +56,7 @@ The dashboard opens automatically in your default browser.
 
 ## Configuration
 
-Create a `config.json` in the project root (it is gitignored). All top-level properties are required except `aliases`, `ignoreUsers`, `commitsPerPullRequest`, `roles`, `userRoles`, and `userEndDates`.
+Create a `config.json` in the project root (it is gitignored). All top-level properties are required except `aliases`, `ignoreUsers`, `botUsers`, `commitsPerPullRequest`, `roles`, `userRoles`, and `userEndDates`.
 
 ```jsonc
 {
@@ -83,6 +83,12 @@ Create a `config.json` in the project root (it is gitignored). All top-level pro
   "ignoreUsers": [
     "DevOps", // names to exclude from results
     "dependabot[bot]",
+  ],
+  "botUsers": [
+    // optional — alias names (matching "aliases" keys, not raw logins) whose
+    // comments are excluded from the churn metric's non-bot comment count
+    "DevOps Deployment",
+    "AI Bots",
   ],
   "roles": {
     // optional — omit entirely to disable role badges and the Methodology role tables
@@ -319,6 +325,24 @@ Scores are calculated per user per period using the weights defined in [`score.j
 | Files Touched           | × 0.0001 | Unique files modified                                                |
 
 The team score is the average of all non-ignored users' scores for a given period.
+
+### Churn
+
+Churn is repo-hero's first *negative* metric — it subtracts from a user's overall score rather than
+adding to it. It only considers PRs that are **merged**, have **1+ reviews**, and have **at least one
+approval** (a stricter subset than the "Pull Requests" metric above, which only requires 1+ reviews).
+Its sub-metrics are gathered but not individually displayed — only the composite churn deduction shows
+up as a reduction to the overall score:
+
+| Sub-metric               | Weight | Notes                                                                          |
+| ------------------------- | ------ | ------------------------------------------------------------------------------- |
+| PR Open Duration          | − 1    | Per 24hrs a qualifying PR was open (`merged_at - created_at`)                   |
+| Feedback Reviews Received | − 3    | Per review with changes requested or non-empty comment text on a qualifying PR |
+| Non-Bot Comments          | − 0.5  | Per conversation comment (not tied to a review) from a non-bot user            |
+
+A comment's author counts as a "bot" if their resolved alias (see `aliases` in `config.json`) is listed
+in the optional `botUsers` config array. The final score is clamped at 0 — churn can offset earned
+credit down to nothing, but never pushes a score negative.
 
 ### Outlier Detection
 

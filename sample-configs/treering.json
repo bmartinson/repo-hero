@@ -142,6 +142,10 @@
     "Kelley Austin",
     "Melizza Tant"
   ],
+  "botUsers": [
+    "DevOps Deployment",
+    "AI Bots"
+  ],
   "roles": {
     "Software Engineer": {
       "pullRequests": { "satisfactory": 5, "goal": 7 },

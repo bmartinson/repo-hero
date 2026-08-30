@@ -2065,7 +2065,7 @@ ${
         weekly rate for the metrics tracked below. A user's assigned role is shown on their
         tile in the Users tab, alongside a bar indicating how their current activity compares —
         left of center is below satisfactory (❗), centered through the right edge is satisfactory
-        through goal (🫥), and past the right edge means every applicable metric is at or beyond
+        through goal (🙂), and past the right edge means every applicable metric is at or beyond
         goal (🤩). The overall verdict allows a small tolerance below satisfactory (down to -0.25
         on the blended scale) before it's marked Failing, so someone who's strong on most metrics
         with only a minor shortfall elsewhere still reads as Meets Expectations overall — the
@@ -2534,7 +2534,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
   // isn't tipped into "Failing" overall by minor shortfalls averaging out.
   function categorizeAttainment(position) {
     if (position < 0) return { category: 'Failing', emoji: '❗' };
-    if (position < 1) return { category: 'Meets Expectations', emoji: '🫥' };
+    if (position < 1) return { category: 'Meets Expectations', emoji: '🙂' };
     return { category: 'Exceeding', emoji: '🤩' };
   }
 
@@ -2544,7 +2544,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
   const OVERALL_MEETS_TOLERANCE = -0.25;
   function categorizeOverallAttainment(overall) {
     if (overall < OVERALL_MEETS_TOLERANCE) return { category: 'Failing', emoji: '❗' };
-    if (overall < 1) return { category: 'Meets Expectations', emoji: '🫥' };
+    if (overall < 1) return { category: 'Meets Expectations', emoji: '🙂' };
     return { category: 'Exceeding', emoji: '🤩' };
   }
 
@@ -2593,7 +2593,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
   }
 
   // Builds a short, plain-language summary sentence (e.g. "🤩 Excelling in
-  // Pull Requests. 🫥 On track with Reviews. ❗ Falling behind in Score.")
+  // Pull Requests. 🙂 On track with Reviews. ❗ Falling behind in Score.")
   // from a getRoleAttainment() result's per-metric breakdown.
   function buildSentimentSummary(attainment) {
     if (!attainment || !attainment.role || attainment.overall === null) return '';
@@ -2607,7 +2607,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     });
     const parts = [];
     if (exceeding.length) parts.push('🤩 <strong>Excelling</strong> in ' + exceeding.join(', ') + '.');
-    if (meeting.length) parts.push('🫥 <strong>On track</strong> with ' + meeting.join(', ') + '.');
+    if (meeting.length) parts.push('🙂 <strong>On track</strong> with ' + meeting.join(', ') + '.');
     if (failing.length) parts.push('❗ <strong>Falling behind</strong> in ' + failing.join(', ') + '.');
     return parts.join(' ');
   }

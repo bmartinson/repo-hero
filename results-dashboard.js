@@ -2562,7 +2562,6 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       approvals: totals.approvals,
       issueResolutions: totals.issueResolutions,
     };
-    };
 
     const positions = [];
     const metrics = {};

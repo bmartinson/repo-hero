@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const { sendDashboardEmail } = require('./email-dashboard');
-const { WEIGHTS } = require('./score');
+const { WEIGHTS, CHURN_WEIGHTS, calculateChurn } = require('./score');
 
 const resultsDir = path.join(__dirname, '.results_history');
 const inputFile = path.join(resultsDir, 'combined_results.json');
@@ -158,6 +158,9 @@ filteredEntries.forEach(({ entry, startDate, endDate }) => {
       issueResolutions: user.issueResolutions || 0,
       loc: user.loc || 0,
       filesTouched: user.filesTouched || 0,
+      churnOpenDurationDays: user.churnOpenDurationDays || 0,
+      churnFeedbackReviews: user.churnFeedbackReviews || 0,
+      churnNonBotComments: user.churnNonBotComments || 0,
       repoBreakdown: user.repoBreakdown || {},
       resolutionBreakdown: user.resolutionBreakdown || {},
     };
@@ -1811,6 +1814,7 @@ html.light-mode .footer-icon-dark-theme { display: none; }
 ${hasIssueResolutions ? `<button class="sort-btn" data-sort="issueResolutions" onclick="setUserSort('issueResolutions')">Issue Resolutions</button>` : ''}
         <button class="sort-btn" data-sort="loc" onclick="setUserSort('loc')">LOC</button>
         <button class="sort-btn" data-sort="filesTouched" onclick="setUserSort('filesTouched')">Files</button>
+        <button class="sort-btn" data-sort="churn" onclick="setUserSort('churn')" title="Lower is better">Churn</button>
       </div>
       <button class="scroll-arrow scroll-right" onclick="scrollBtns(this)" aria-label="Scroll right">▸</button>
     </div>
@@ -1948,6 +1952,37 @@ ${
             <td>Files Touched</td>
             <td class="meth-mono">${WEIGHTS.filesTouched}</td>
             <td>Minimal weight — breadth signal, but easily inflated by refactors or renames.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 class="meth-heading">Churn (Negative Metric)</h2>
+      <p class="meth-text">
+        Churn is the only metric that <em>subtracts</em> from score instead of adding to it, and is
+        already netted into the score shown everywhere else in the dashboard. It's computed from a PR
+        that was merged, has 1+ reviews, and has at least one approval — a stricter subset than the
+        Pull Requests metric above. On the Churn chart and "Sort by" control, <strong>lower is
+        better</strong>: it ranks and charts ascending (least churn first), unlike every other metric.
+      </p>
+      <table class="meth-table">
+        <thead>
+          <tr><th>Sub-metric</th><th>Weight</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>PR Open Duration</td>
+            <td class="meth-mono">&minus;${CHURN_WEIGHTS.openDurationDays}</td>
+            <td>Per 24hrs a qualifying PR was open (merged_at − created_at).</td>
+          </tr>
+          <tr>
+            <td>Feedback Reviews Received</td>
+            <td class="meth-mono">&minus;${CHURN_WEIGHTS.feedbackReviews}</td>
+            <td>Per review with changes requested or non-empty comment text on a qualifying PR.</td>
+          </tr>
+          <tr>
+            <td>Non-Bot Comments</td>
+            <td class="meth-mono">&minus;${CHURN_WEIGHTS.nonBotComments}</td>
+            <td>Per conversation comment (not tied to a review) from a non-bot user.</td>
           </tr>
         </tbody>
       </table>
@@ -2201,6 +2236,10 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     { key: 'commits',      label: 'Commits',        color: '#22cc44', format: v => v.toFixed(0) },
     { key: 'loc',          label: 'Lines of Code',  color: '#ff8844', format: v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0) },
     { key: 'filesTouched', label: 'Files Touched',  color: '#ffaa00', format: v => v.toFixed(0) },
+    // Churn is repo-hero's only "negative" metric — lower is better, so every
+    // ranking/sort/leaderboard for this key must invert direction (see
+    // lowerIsBetter checks throughout).
+    { key: 'churn',        label: 'Churn',          color: '#ff4d6d', format: v => v.toFixed(1), lowerIsBetter: true },
   ];
 
   // ─── Theming ───────────────────────────────────────────────────────────
@@ -2215,6 +2254,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     commits: '#0f8a35',
     loc: '#c2521a',
     filesTouched: '#a86b00',
+    churn: '#c22b47',
   };
 
   function metricColor(m) {
@@ -2279,6 +2319,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
   function CT() { return CHART_THEME[currentTheme]; }
 
   const SCORE_WEIGHTS = ${JSON.stringify(WEIGHTS)};
+  const CHURN_WEIGHTS = ${JSON.stringify(CHURN_WEIGHTS)};
   const ROLES = ${JSON.stringify(ROLES)};
   const USER_ROLES = ${JSON.stringify(USER_ROLES)};
   const USER_END_DATES = ${JSON.stringify(USER_END_DATES)};
@@ -2291,6 +2332,15 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       + (rb.commits || 0) * SCORE_WEIGHTS.commits
       + (rb.feedback || 0) * SCORE_WEIGHTS.feedback
       + (rb.approvals || 0) * SCORE_WEIGHTS.approvals;
+  }
+
+  // Composite churn value from the raw sub-metric totals. Mirrors
+  // calculateChurn() in score.js — kept in sync manually since the sub-metric
+  // fields (not the pre-computed composite) are what's persisted per period.
+  function calculateChurnValue(totals) {
+    return (totals.churnOpenDurationDays || 0) * CHURN_WEIGHTS.openDurationDays
+      + (totals.churnFeedbackReviews || 0) * CHURN_WEIGHTS.feedbackReviews
+      + (totals.churnNonBotComments || 0) * CHURN_WEIGHTS.nonBotComments;
   }
 
   let currentScope = 7; // days (0 = all)
@@ -2373,8 +2423,8 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
 
   function getUserTotals(userName, periods) {
     const ud = DATA.users[userName];
-    if (!ud) return { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, feedback:0, approvals:0, issueResolutions:0, loc:0, filesTouched:0 };
-    const totals = { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, feedback:0, approvals:0, issueResolutions:0, loc:0, filesTouched:0 };
+    if (!ud) return { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, feedback:0, approvals:0, issueResolutions:0, loc:0, filesTouched:0, churnOpenDurationDays:0, churnFeedbackReviews:0, churnNonBotComments:0, churn:0 };
+    const totals = { score:0, commits:0, pullRequests:0, predictedPullRequests:0, effectivePRs:0, feedback:0, approvals:0, issueResolutions:0, loc:0, filesTouched:0, churnOpenDurationDays:0, churnFeedbackReviews:0, churnNonBotComments:0 };
     periods.forEach(p => {
       const d = ud.data[p];
       if (d) {
@@ -2388,8 +2438,12 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
         totals.issueResolutions += d.issueResolutions || 0;
         totals.loc += d.loc;
         totals.filesTouched += d.filesTouched;
+        totals.churnOpenDurationDays += d.churnOpenDurationDays || 0;
+        totals.churnFeedbackReviews += d.churnFeedbackReviews || 0;
+        totals.churnNonBotComments += d.churnNonBotComments || 0;
       }
     });
+    totals.churn = calculateChurnValue(totals);
     return totals;
   }
 
@@ -2613,13 +2667,19 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
   }
 
   function getTopUsers(metricKey, periods, limit) {
+    const metricDef = METRICS.find(m => m.key === metricKey);
+    const lowerIsBetter = !!(metricDef && metricDef.lowerIsBetter);
     const userNames = Object.keys(DATA.users);
     const scored = userNames.map(name => {
       const totals = getUserTotals(name, periods);
-      return { name, value: totals[metricKey] };
+      return { name, value: totals[metricKey], active: totals.score > 0 };
     });
-    scored.sort((a, b) => b.value - a.value);
-    return scored.filter(u => u.value > 0).slice(0, limit);
+    // Normal metrics: only rank users with a positive value, highest first.
+    // Churn (lowerIsBetter): 0 is the best possible value, so rank active
+    // contributors lowest-first instead of filtering out zero values.
+    const filtered = lowerIsBetter ? scored.filter(u => u.active) : scored.filter(u => u.value > 0);
+    filtered.sort((a, b) => lowerIsBetter ? a.value - b.value : b.value - a.value);
+    return filtered.slice(0, limit);
   }
 
   // Compute positive outliers: users > mean + 1.5*stdDev for each metric
@@ -2630,7 +2690,9 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     if (active.length < 3) return {};
 
     const outliers = {};
-    const metricKeys = METRICS.map(m => m.key);
+    // Churn is lowerIsBetter — a high value is bad, not a 🔥-worthy positive
+    // outlier, so it's excluded from this "exceeding expectations" detector.
+    const metricKeys = METRICS.filter(m => !m.lowerIsBetter).map(m => m.key);
 
     metricKeys.forEach(key => {
       const values = active.map(u => u.totals[key]);
@@ -2880,15 +2942,18 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       const canvas = document.getElementById('chart-' + metric.key);
 
       if (isWeekView) {
-        // Bar chart: all active users sorted by value descending, on x-axis
+        // Bar chart: all active users sorted by value descending, on x-axis.
+        // Churn is lowerIsBetter, so it's ranked ascending (lowest churn
+        // first / best) and includes zero-churn active users instead of
+        // filtering them out.
         const allUsers = Object.keys(DATA.users)
           .map(name => {
             const totals = getUserTotals(name, periods);
             const value = metric.key === 'effectivePRs' ? totals.effectivePRs : (totals[metric.key] || 0);
-            return { name, value };
+            return { name, value, active: totals.score > 0 };
           })
-          .filter(u => u.value > 0)
-          .sort((a, b) => b.value - a.value);
+          .filter(u => metric.lowerIsBetter ? u.active : u.value > 0)
+          .sort((a, b) => metric.lowerIsBetter ? a.value - b.value : b.value - a.value);
 
         const userLabels = allUsers.map(u => u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '));
         const values = allUsers.map(u => u.value);
@@ -2919,6 +2984,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
               const d = ud.data[p];
               if (!d) return 0;
               if (metric.key === 'effectivePRs') return d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
+              if (metric.key === 'churn') return calculateChurnValue(d);
               return d[metric.key] || 0;
             }),
             borderColor: color,
@@ -2952,7 +3018,12 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       totals: getUserTotals(name, periods)
     }));
 
-    usersWithTotals.sort((a, b) => b.totals[currentSort] - a.totals[currentSort]);
+    // Churn is lowerIsBetter — lowest churn ranks first when sorted by it.
+    const currentSortMetric = METRICS.find(m => m.key === currentSort);
+    const sortAscending = !!(currentSortMetric && currentSortMetric.lowerIsBetter);
+    usersWithTotals.sort((a, b) => sortAscending
+      ? a.totals[currentSort] - b.totals[currentSort]
+      : b.totals[currentSort] - a.totals[currentSort]);
 
     // Filter to users with any activity
     const active = usersWithTotals.filter(u => u.totals.score > 0);
@@ -3508,6 +3579,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
         const d = ud && ud.data[p];
         if (!d) return 0;
         if (m.key === 'effectivePRs') return d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
+        if (m.key === 'churn') return calculateChurnValue(d);
         return d[m.key] || 0;
       });
       profileCharts[m.key] = new Chart(canvas, makeChartConfig(
@@ -3605,6 +3677,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
         let val = 0;
         if (d) {
           if (m.key === 'effectivePRs') val = d.pullRequests > 0 ? d.pullRequests : (d.predictedPullRequests || 0);
+          else if (m.key === 'churn') val = calculateChurnValue(d);
           else val = d[m.key] || 0;
         }
         t += '<td>' + m.format(val) + '</td>';
@@ -3725,7 +3798,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       currentScope = +scope;
     }
     const sort = params.get('sort');
-    if (sort && ['score','commits','pullRequests','feedback','approvals','issueResolutions','loc','filesTouched'].includes(sort)) currentSort = sort;
+    if (sort && ['score','commits','pullRequests','feedback','approvals','issueResolutions','loc','filesTouched','churn'].includes(sort)) currentSort = sort;
     return {
       tab: params.get('tab') || 'dashboard',
       profile: params.get('profile') || null,

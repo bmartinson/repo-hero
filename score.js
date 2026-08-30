@@ -11,7 +11,7 @@ const WEIGHTS = {
   pullRequests: 15,
   predictedPullRequests: 15,
   commits: 1 / 100,
-  feedback: 18,
+  feedback: 20,
   approvals: 5,
   // Issue resolutions sit below pullRequests (15) and feedback (17). A resolved
   // issue is a meaningful unit of delivered work, but it is a coarser signal and

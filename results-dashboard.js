@@ -2088,6 +2088,7 @@ ${hasIssueResolutions ? `<tr><td>Issue Resolutions</td><td>Jira issues resolved 
           <tr><td>Commits</td><td>Total git commits authored across all tracked repositories.</td></tr>
           <tr><td>Lines of Code</td><td>Net lines added (insertions − deletions) across all commits.</td></tr>
           <tr><td>Files Touched</td><td>Unique files modified across all commits in the period.</td></tr>
+          <tr><td>Churn</td><td>How much friction a user has while delivering code. A score of 0 is perfect.</td></tr>
           <tr><td>Active Contributors</td><td>Unique users with any commits, PRs, feedback, or approvals${hasIssueResolutions ? ', or issue resolutions' : ''} in the scope.</td></tr>
         </tbody>
       </table>
@@ -2672,12 +2673,16 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     const userNames = Object.keys(DATA.users);
     const scored = userNames.map(name => {
       const totals = getUserTotals(name, periods);
-      return { name, value: totals[metricKey], active: totals.score > 0 };
+      return { name, value: totals[metricKey], score: totals.score };
     });
     // Normal metrics: only rank users with a positive value, highest first.
-    // Churn (lowerIsBetter): 0 is the best possible value, so rank active
-    // contributors lowest-first instead of filtering out zero values.
-    const filtered = lowerIsBetter ? scored.filter(u => u.active) : scored.filter(u => u.value > 0);
+    // Churn (lowerIsBetter): 0 is the best possible value, so it's kept on
+    // the leaderboard — only drop a user when they have BOTH 0 churn and
+    // 0 score, since that combination means there's nothing meaningful to
+    // rank (no real activity at all), not a "perfect" churn score.
+    const filtered = lowerIsBetter
+      ? scored.filter(u => !(u.value === 0 && u.score === 0))
+      : scored.filter(u => u.value > 0);
     filtered.sort((a, b) => lowerIsBetter ? a.value - b.value : b.value - a.value);
     return filtered.slice(0, limit);
   }
@@ -2944,15 +2949,16 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       if (isWeekView) {
         // Bar chart: all active users sorted by value descending, on x-axis.
         // Churn is lowerIsBetter, so it's ranked ascending (lowest churn
-        // first / best) and includes zero-churn active users instead of
-        // filtering them out.
+        // first / best). A user is only dropped when they have BOTH 0 churn
+        // and 0 score (nothing meaningful to rank) — a 0-churn user with a
+        // real score stays on the chart since that's a genuinely good result.
         const allUsers = Object.keys(DATA.users)
           .map(name => {
             const totals = getUserTotals(name, periods);
             const value = metric.key === 'effectivePRs' ? totals.effectivePRs : (totals[metric.key] || 0);
-            return { name, value, active: totals.score > 0 };
+            return { name, value, score: totals.score };
           })
-          .filter(u => metric.lowerIsBetter ? u.active : u.value > 0)
+          .filter(u => metric.lowerIsBetter ? !(u.value === 0 && u.score === 0) : u.value > 0)
           .sort((a, b) => metric.lowerIsBetter ? a.value - b.value : b.value - a.value);
 
         const userLabels = allUsers.map(u => u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '));

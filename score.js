@@ -17,7 +17,7 @@ const WEIGHTS = {
   // issue is a meaningful unit of delivered work, but it is a coarser signal and
   // is frequently closed by a pull request that is already being counted, so the
   // weight is deliberately lower to limit double counting.
-  issueResolutions: 10,
+  issueResolutions: 8,
 };
 
 /**

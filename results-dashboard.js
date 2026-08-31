@@ -2738,15 +2738,18 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     const userNames = Object.keys(DATA.users);
     const scored = userNames.map(name => {
       const totals = getUserTotals(name, periods);
-      return { name, value: totals[metricKey], score: totals.score };
+      return { name, value: totals[metricKey], score: totals.score, pullRequests: totals.pullRequests };
     });
     // Normal metrics: only rank users with a positive value, highest first.
     // Churn (lowerIsBetter): 0 is the best possible value, so it's kept on
     // the leaderboard — only drop a user when they have BOTH 0 churn and
     // 0 score, since that combination means there's nothing meaningful to
-    // rank (no real activity at all), not a "perfect" churn score.
+    // rank (no real activity at all), not a "perfect" churn score. Also
+    // require at least 1 counted PR — churn is only ever generated from
+    // PRs counted toward the Pull Requests metric, so a user with 0 PRs
+    // has nothing churn-eligible to show regardless of score.
     const filtered = lowerIsBetter
-      ? scored.filter(u => !(u.value === 0 && u.score === 0))
+      ? scored.filter(u => !(u.value === 0 && u.score === 0) && u.pullRequests > 0)
       : scored.filter(u => u.value > 0);
     filtered.sort((a, b) => lowerIsBetter ? a.value - b.value : b.value - a.value);
     return filtered.slice(0, limit);
@@ -3017,13 +3020,15 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
         // first / best). A user is only dropped when they have BOTH 0 churn
         // and 0 score (nothing meaningful to rank) — a 0-churn user with a
         // real score stays on the chart since that's a genuinely good result.
+        // Also requires at least 1 counted PR for churn, since churn is only
+        // ever generated from PRs counted toward the Pull Requests metric.
         const allUsers = Object.keys(DATA.users)
           .map(name => {
             const totals = getUserTotals(name, periods);
             const value = metric.key === 'effectivePRs' ? totals.effectivePRs : (totals[metric.key] || 0);
-            return { name, value, score: totals.score };
+            return { name, value, score: totals.score, pullRequests: totals.pullRequests };
           })
-          .filter(u => metric.lowerIsBetter ? !(u.value === 0 && u.score === 0) : u.value > 0)
+          .filter(u => metric.lowerIsBetter ? (!(u.value === 0 && u.score === 0) && u.pullRequests > 0) : u.value > 0)
           .sort((a, b) => metric.lowerIsBetter ? a.value - b.value : b.value - a.value);
 
         const userLabels = allUsers.map(u => u.name.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '));

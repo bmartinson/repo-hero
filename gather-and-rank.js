@@ -1421,8 +1421,16 @@ function _processProjects() {
                         ? prReviewResponse.data
                         : [];
 
-                      // Only count pull requests that have 1+ reviews
-                      if (reviews.length > 0) {
+                      // Only count pull requests toward the "Pull Requests"
+                      // metric (and the pullRequestList shown in the profile
+                      // modal) once they have at least 1 APPROVED review --
+                      // a PR with only CHANGES_REQUESTED/COMMENTED reviews
+                      // (or no reviews at all) should not count.
+                      const hasApproval = reviews.some(
+                        review => review?.state === 'APPROVED'
+                      );
+
+                      if (hasApproval) {
                         _RESULTS.totalPullRequests++;
                         _RESULTS.users[alias].pullRequests++;
                         _RESULTS.users[alias].pullRequestList.push({
@@ -1522,14 +1530,11 @@ function _processProjects() {
                       });
 
                       // ─── Churn (negative metric) ──────────────────────
-                      // Only PRs that are merged, have 1+ review, and have
-                      // at least one APPROVED review are eligible to
-                      // generate churn -- this is a stricter set than the
-                      // "Pull Requests" metric above (which only requires
-                      // 1+ reviews) and is scoped to churn eligibility only.
-                      const hasApproval = reviews.some(
-                        review => review?.state === 'APPROVED'
-                      );
+                      // Only PRs that are merged and have 1+ APPROVED
+                      // review are eligible to generate churn -- this now
+                      // matches the "Pull Requests" metric's approval
+                      // requirement above, plus the additional "merged"
+                      // requirement scoped to churn eligibility only.
                       const isChurnEligiblePR =
                         prdResponse?.data?.merged === true &&
                         reviews.length > 0 &&

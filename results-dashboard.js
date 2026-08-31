@@ -2018,8 +2018,9 @@ ${
       <p class="meth-text">
         Churn is the only metric that <em>subtracts</em> from score instead of adding to it, and is
         already netted into the score shown everywhere else in the dashboard. It's computed from a PR
-        that was merged, has 1+ reviews, and has at least one approval — a stricter subset than the
-        Pull Requests metric above. On the Churn chart and "Sort by" control, <strong>lower is
+        that was merged and has at least one approval — the same approval requirement as the Pull
+        Requests metric above, plus the additional requirement that the PR was merged. On the Churn
+        chart and "Sort by" control, <strong>lower is
         better</strong>: it ranks and charts ascending (least churn first), unlike every other metric.
       </p>
       <table class="meth-table">
@@ -2139,7 +2140,7 @@ ${
         </thead>
         <tbody>
           <tr><td>Score</td><td>Weighted composite of all metrics below. Higher is better.</td></tr>
-          <tr><td>Pull Requests</td><td>Real PRs merged/opened with 1+ reviews, or predicted PRs when real data is unavailable.</td></tr>
+          <tr><td>Pull Requests</td><td>Real PRs merged/opened with at least one approval, or predicted PRs when real data is unavailable.</td></tr>
           <tr><td>Feedback</td><td>Pull request reviews that requested changes or added text comments.</td></tr>
           <tr><td>Approvals</td><td>Pull request reviews with approval state.</td></tr>
 ${hasIssueResolutions ? `<tr><td>Issue Resolutions</td><td>Jira issues resolved in the period, credited to their assignee via the alias map. Captures delivered work that leaves no commit behind.</td></tr>` : ''}
@@ -3607,9 +3608,10 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     html += '</div></div>';
 
     // ─── Pull request list (same PRs counted toward the Pull Requests metric) ──
-    // A PR only counts toward that metric once it has 1+ reviews (see
-    // gather-and-rank.js) — pullRequestList is populated under that exact
-    // condition, so this list always matches what's being scored.
+    // A PR only counts toward that metric once it has at least one
+    // APPROVED review (see gather-and-rank.js) — pullRequestList is
+    // populated under that exact condition, so this list always matches
+    // what's being scored.
     const prList = [];
     periods.forEach(pid => {
       const d = ud && ud.data[pid];

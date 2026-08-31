@@ -25,7 +25,7 @@ const WEIGHTS = {
  * review/rework cost of a pull request rather than crediting output. Its
  * sub-metrics (churnOpenDurationDays, churnFeedbackReviews,
  * churnNonBotComments) are gathered only from PRs eligible for churn (see
- * gather-and-rank.js: merged, 1+ review, 1+ approval) and are not surfaced
+ * gather-and-rank.js: merged, 1+ approval) and are not surfaced
  * individually anywhere -- only the composite (calculateChurn()) is used,
  * and only to subtract from the overall score in calculateScore().
  */

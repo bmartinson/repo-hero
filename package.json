@@ -47,7 +47,7 @@
     "exec": "^0.2.1",
     "fs": "^0.0.1-security",
     "node-fetch": "^3.3.2",
-    "nodemailer": "^9.0.6",
+    "nodemailer": "^9.1.0",
     "path": "^0.12.7",
     "uuid": "^14.0.2"
   },

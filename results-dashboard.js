@@ -533,6 +533,14 @@ header {
   padding: 16px 18px;
 }
 
+.summary-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .summary-card .card-label {
   color: var(--fg-dim);
   font-size: 10px;
@@ -540,6 +548,12 @@ header {
   letter-spacing: 1.5px;
   margin-bottom: 6px;
 }
+
+.summary-card .card-header .card-label { margin-bottom: 0; }
+.summary-card .card-predicted { color: var(--fg-dim); opacity: 0.7; text-transform: none; letter-spacing: 0; }
+.summary-card .card-header .chart-expand { padding: 2px 6px; font-size: 11px; }
+
+#team-history-wrap { position: relative; height: 100%; }
 
 .summary-card .card-value {
   font-size: 28px;
@@ -2248,6 +2262,11 @@ ${Object.entries(ROLES)
   </div>
 </div>
 
+<!-- Off-screen host for the team-tile history chart; moved into the chart modal when opened. -->
+<div hidden>
+  <div id="team-history-wrap"><canvas id="team-history-chart"></canvas></div>
+</div>
+
 <!-- Theme Toggle -->
 <button class="theme-toggle" id="theme-toggle" type="button" title="Switch theme" aria-label="Switch theme">
   <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
@@ -2467,6 +2486,61 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     return ALL_PERIODS
       .filter(p => parseDate(p.endDate) > cutoff)
       .map(p => p.id);
+  }
+
+  // Splits the data into consecutive scope-length windows counting back from the
+  // latest period, newest first. Bucket 0 is the current scope (identical to
+  // getScopedPeriods) and bucket 1 is the "prev period" the summary deltas
+  // compare against. YTD buckets are Jan 1 → the latest day-of-year, per year.
+  // 'partial' marks windows that begin before the first period of data.
+  function getScopeBuckets(scope) {
+    if (ALL_PERIODS.length === 0 || scope === 0) return [];
+    const firstStart = parseDate(ALL_PERIODS[0].startDate);
+    const latest = parseDate(ALL_PERIODS[ALL_PERIODS.length - 1].endDate);
+    const buckets = [];
+
+    if (scope === 'ytd') {
+      for (let y = latest.getFullYear(); y >= firstStart.getFullYear(); y--) {
+        const start = new Date(y, 0, 1);
+        const end = new Date(y, latest.getMonth(), latest.getDate());
+        if (end < firstStart) break;
+        const periods = y === latest.getFullYear()
+          ? getScopedPeriods()
+          : ALL_PERIODS
+            .filter(p => { const s = parseDate(p.startDate); return s >= start && s <= end; })
+            .map(p => p.id);
+        buckets.push({ periods, start, end, partial: start < firstStart, label: y + ' YTD' });
+      }
+      return buckets;
+    }
+
+    for (let k = 0; ; k++) {
+      const end = new Date(latest);
+      end.setDate(end.getDate() - scope * k);
+      if (end <= firstStart) break;
+      const start = new Date(end);
+      start.setDate(start.getDate() - scope);
+      const periods = k === 0
+        ? getScopedPeriods()
+        : ALL_PERIODS
+          .filter(p => { const s = parseDate(p.startDate); return s >= start && s < end; })
+          .map(p => p.id);
+      buckets.push({ periods, start, end, partial: start < firstStart, label: formatBucketLabel(start, end, scope) });
+    }
+    return buckets;
+  }
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function formatShortDate(d) {
+    return MONTHS[d.getMonth()] + ' ' + d.getDate() + " '" + String(d.getFullYear()).slice(2);
+  }
+
+  function formatBucketLabel(start, end, scope) {
+    if (scope >= 180) {
+      const my = d => MONTHS[d.getMonth()] + " '" + String(d.getFullYear()).slice(2);
+      return my(start) + ' – ' + my(end);
+    }
+    return formatShortDate(start);
   }
 
   function formatPeriodLabel(periodId) {
@@ -2809,10 +2883,17 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
       }
     });
 
+    const realPRs = filtered.reduce((s,t) => s + t.totalPullRequests, 0);
+    // Windows with no real PR data (e.g. before GitHub history) backfill with predicted PRs.
+    const prsPredicted = realPRs === 0;
+
     return {
       teamScore: avg('teamScore'),
       activeUsers: activeSet.size,
-      totalPullRequests: filtered.reduce((s,t) => s + t.totalPullRequests, 0),
+      totalPullRequests: prsPredicted
+        ? Math.round(filtered.reduce((s,t) => s + (t.predictedPullRequests || 0), 0))
+        : realPRs,
+      prsPredicted,
       totalFeedback,
       totalApprovals,
       totalCommits: filtered.reduce((s,t) => s + t.totalCommits, 0),
@@ -2931,56 +3012,93 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
 
   // ─── Render summary cards ──────────────────────────────────────────────
 
+  const TEAM_CARDS = [
+    { key: 'teamScore',         label: 'Avg Team Score',  fmt: v => v.toFixed(1) },
+    { key: 'activeUsers',       label: 'Active Users',    fmt: v => v },
+    { key: 'totalPullRequests', label: 'Total PRs',       fmt: formatNum },
+    { key: 'totalFeedback',     label: 'Total Feedback',  fmt: formatNum },
+    { key: 'totalApprovals',    label: 'Total Approvals', fmt: formatNum },
+    { key: 'totalCommits',      label: 'Total Commits',   fmt: formatNum },
+  ];
+
   function renderSummary() {
     const periods = getScopedPeriods();
     const summary = getTeamSummary(periods);
 
     // Compute a previous-period summary for delta comparison
-    let prevPeriods = [];
-    if (currentScope === 'ytd' && ALL_PERIODS.length > 0) {
-      // YTD comparison: same Jan 1 – same day-of-year from previous year
-      const latest = parseDate(ALL_PERIODS[ALL_PERIODS.length - 1].endDate);
-      const prevYearJan1 = new Date(latest.getFullYear() - 1, 0, 1);
-      const prevYearSameDay = new Date(latest.getFullYear() - 1, latest.getMonth(), latest.getDate());
-      prevPeriods = ALL_PERIODS
-        .filter(p => {
-          const s = parseDate(p.startDate);
-          return s >= prevYearJan1 && s <= prevYearSameDay;
-        })
-        .map(p => p.id);
-    } else if (currentScope > 0 && ALL_PERIODS.length > 0) {
-      const latest = parseDate(ALL_PERIODS[ALL_PERIODS.length - 1].endDate);
-      const cutoffEnd = new Date(latest);
-      cutoffEnd.setDate(cutoffEnd.getDate() - currentScope);
-      const cutoffStart = new Date(cutoffEnd);
-      cutoffStart.setDate(cutoffStart.getDate() - currentScope);
-      prevPeriods = ALL_PERIODS
-        .filter(p => {
-          const s = parseDate(p.startDate);
-          return s >= cutoffStart && s < cutoffEnd;
-        })
-        .map(p => p.id);
-    }
+    const buckets = getScopeBuckets(currentScope);
+    const prevPeriods = buckets[1] ? buckets[1].periods : [];
     const prevSummary = getTeamSummary(prevPeriods);
 
-    const cards = [
-      { label: 'Avg Team Score', value: summary.teamScore, prev: prevSummary.teamScore, fmt: v => v.toFixed(1) },
-      { label: 'Active Users', value: summary.activeUsers, prev: prevSummary.activeUsers, fmt: v => v },
-      { label: 'Total PRs', value: summary.totalPullRequests, prev: prevSummary.totalPullRequests, fmt: formatNum },
-      { label: 'Total Feedback', value: summary.totalFeedback, prev: prevSummary.totalFeedback, fmt: formatNum },
-      { label: 'Total Approvals', value: summary.totalApprovals, prev: prevSummary.totalApprovals, fmt: formatNum },
-      { label: 'Total Commits', value: summary.totalCommits, prev: prevSummary.totalCommits, fmt: formatNum },
-    ];
-
+    const showHistory = currentScope !== 0;
     const el = document.getElementById('summary-row');
-    el.innerHTML = cards.map(c => {
-      const d = getDelta(c.value, c.prev);
+    el.innerHTML = TEAM_CARDS.map(c => {
+      const value = summary[c.key];
+      const d = getDelta(value, prevSummary[c.key]);
+      const predicted = c.key === 'totalPullRequests' && summary.prsPredicted;
       return '<div class="summary-card">'
-        + '<div class="card-label">' + c.label + '</div>'
-        + '<div class="card-value">' + c.fmt(c.value) + '</div>'
+        + '<div class="card-header">'
+          + '<div class="card-label">' + c.label + (predicted ? ' <span class="card-predicted" title="No real PR data in this window; showing predicted PRs">(predicted)</span>' : '') + '</div>'
+          + (showHistory
+            ? '<button class="chart-expand" type="button" title="Show history" aria-label="Show ' + c.label + ' history full screen" data-team-metric="' + c.key + '">&#9974;</button>'
+            : '')
+        + '</div>'
+        + '<div class="card-value">' + c.fmt(value) + '</div>'
         + '<div class="card-delta ' + d.cls + '">' + d.text + '</div>'
         + '</div>';
     }).join('');
+  }
+
+  // ─── Team metric history (full-screen modal) ───────────────────────────
+
+  let teamHistoryChart = null;
+  let openTeamMetric = null;
+
+  const SCOPE_LABELS = { 7: '1W', 14: '2W', 21: '3W', 30: '1M', 60: '2M', 90: '3M', 180: '6M', 365: '1Y', ytd: 'YTD' };
+
+  function teamHistoryTitle(card) {
+    return card.label + ' — every ' + (SCOPE_LABELS[currentScope] || currentScope + 'D') + ' period';
+  }
+
+  function renderTeamHistory(key) {
+    const card = TEAM_CARDS.find(c => c.key === key);
+    if (!card) return;
+    if (teamHistoryChart) teamHistoryChart.destroy();
+
+    const buckets = getScopeBuckets(currentScope).filter(b => !b.partial).reverse();
+    const labels = buckets.map(b => b.label);
+    const summaries = buckets.map(b => getTeamSummary(b.periods));
+    const values = summaries.map(s => s[key]);
+    const isPredicted = i => key === 'totalPullRequests' && !!summaries[i].prsPredicted;
+    const color = chartColors()[1];
+    const config = makeBarChartConfig(labels, values, labels.map(() => color), card.fmt);
+    // Predicted backfill bars are drawn with a faint fill.
+    const ds = config.data.datasets[0];
+    ds.backgroundColor = labels.map((_, i) => color + (isPredicted(i) ? '33' : 'bb'));
+    config.options.plugins.tooltip.callbacks = {
+      title: items => {
+        const b = buckets[items[0].dataIndex];
+        return formatShortDate(b.start) + ' – ' + formatShortDate(b.end);
+      },
+      label: ctx => card.label + ': ' + card.fmt(ctx.parsed.y) + (isPredicted(ctx.dataIndex) ? ' (predicted)' : ''),
+    };
+
+    teamHistoryChart = new Chart(document.getElementById('team-history-chart'), config);
+    openTeamMetric = key;
+
+    const titleEl = document.getElementById('chart-modal-title');
+    if (titleEl && expandedChart && expandedChart.node.id === 'team-history-wrap') {
+      titleEl.textContent = teamHistoryTitle(card);
+    }
+  }
+
+  function openTeamHistory(key) {
+    if (expandedChart || currentScope === 0) return;
+    const card = TEAM_CARDS.find(c => c.key === key);
+    if (!card) return;
+    // Move the host into the visible modal first so Chart.js measures real dimensions.
+    openChartModal('team-history-wrap', teamHistoryTitle(card));
+    renderTeamHistory(key);
   }
 
   // ─── Render widgets ────────────────────────────────────────────────────
@@ -3842,6 +3960,7 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
   function resizeAllCharts() {
     Object.values(charts).forEach(c => c.resize());
     if (distChart) distChart.resize();
+    if (teamHistoryChart) teamHistoryChart.resize();
   }
 
   window.openChartModal = function(containerId, title) {
@@ -3871,6 +3990,12 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     placeholder.remove();
     expandedChart = null;
 
+    if (node.id === 'team-history-wrap') {
+      if (teamHistoryChart) teamHistoryChart.destroy();
+      teamHistoryChart = null;
+      openTeamMetric = null;
+    }
+
     document.getElementById('chart-overlay').classList.remove('visible');
     document.body.style.overflow = '';
     resizeAllCharts();
@@ -3880,6 +4005,10 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
   document.addEventListener('click', e => {
     const btn = e.target.closest('.chart-expand');
     if (!btn) return;
+    if (btn.dataset.teamMetric) {
+      openTeamHistory(btn.dataset.teamMetric);
+      return;
+    }
     const titleEl = btn.dataset.titleSrc
       ? document.getElementById(btn.dataset.titleSrc)
       : null;
@@ -4107,6 +4236,10 @@ ${hasIssueResolutions ? `    { key: 'issueResolutions', label: 'Issue Resolution
     userColorMap = buildUserColorMap(getScopedPeriods());
     renderSummary();
     renderWidgets();
+    if (openTeamMetric) {
+      if (currentScope === 0) closeChartModal();
+      else renderTeamHistory(openTeamMetric);
+    }
     if (document.getElementById('tab-users').classList.contains('active')) {
       renderUsers();
     }

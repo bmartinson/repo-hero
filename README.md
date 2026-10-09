@@ -21,6 +21,7 @@ A configurable CLI toolkit for analyzing the health of git repositories and thei
 - **Repository breakdown** — per-user doughnut charts showing contribution distribution across repositories, plus a dedicated Repos tab ranking all repositories by contribution share
 - **Consistent user colors** — chart colors are assigned by overall score rank, so the same person keeps the same color across all metric widgets
 - **Full-screen chart expansion** — any chart tile can be expanded into a near-fullscreen modal for detailed reading, without rebuilding the chart or losing its current scope
+- **Team metric history** — each team summary tile (Total PRs, Active Users, etc.) has an expand button that opens a full-screen bar chart of that metric for every scope-length period in the data (e.g. 1Y shows year-over-year totals; YTD compares Jan 1 → same day across years)
 - **Light / dark theme toggle** — a sun/moon button in the bottom-right corner switches between the light and dark palettes. The theme defaults to the time of day (light 7am–5pm, dark otherwise); your manual choice is remembered until the next natural changeover. Charts are re-rendered with a matching palette on every switch
 - **URL state persistence** — tab, scope, sort, and open profile are stored in URL query parameters so a page refresh restores your exact view
 - **Methodology page** — built-in documentation tab explaining scoring formulas, PR prediction, and outlier detection (auto-synced with `score.js` weights)

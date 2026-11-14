@@ -47,12 +47,12 @@
     "exec": "^0.2.1",
     "fs": "^0.0.1-security",
     "node-fetch": "^3.3.2",
-    "nodemailer": "^10.4.0",
+    "nodemailer": "^10.5.0",
     "path": "^0.12.7",
     "uuid": "^14.0.3"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-    "prettier": "^3.9.10"
+    "prettier": "^3.10.1"
   }
 }
